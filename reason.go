@@ -38,9 +38,9 @@ const (
 	XETH_IFINFO_REASON_VLAN_DUMP
 )
 
-type IfinfoReason uint8
+type IfInfoReason uint8
 
-func (reason IfinfoReason) String() string {
+func (reason IfInfoReason) String() string {
 	var reasons = []string{
 		"new",
 		"del",

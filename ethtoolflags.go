@@ -1,4 +1,4 @@
-/* Copyright(c) 2018 Platina Systems, Inc.
+/* Copyright(c) 2018-2019 Platina Systems, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -24,13 +24,10 @@
 package xeth
 
 import (
-	"bytes"
 	"fmt"
 )
 
 type EthtoolPrivFlags uint32
-
-var EthtoolPrivFlagNames []string
 
 func (bits *EthtoolPrivFlags) cache(args ...interface{}) {
 	for _, v := range args {
@@ -46,22 +43,10 @@ func (bits *EthtoolPrivFlags) cache(args ...interface{}) {
 }
 
 func (bits EthtoolPrivFlags) String() string {
-	var sep string
 	if bits == 0 {
 		return "none"
 	}
-	if len(EthtoolPrivFlagNames) == 0 {
-		return fmt.Sprintf("b%b", bits)
-	}
-	buf := new(bytes.Buffer)
-	for i, s := range EthtoolPrivFlagNames {
-		bit := EthtoolPrivFlags(1) << uint(i)
-		if bits&bit == bit {
-			fmt.Fprint(buf, sep, s)
-			sep = "|"
-		}
-	}
-	return buf.String()
+	return fmt.Sprintf("b%b", bits)
 }
 
 func (bits EthtoolPrivFlags) Test(bit uint) bool {

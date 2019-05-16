@@ -1,4 +1,4 @@
-/* Copyright(c) 2018 Platina Systems, Inc.
+/* Copyright(c) 2018-2019 Platina Systems, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -27,23 +27,10 @@ import (
 	"fmt"
 	"os"
 	"testing"
-
-	"github.com/platinasystems/xeth/platina/mk1"
 )
-
-var machine = flag.String("test.machine", "platina-mk1",
-	"reference platform's ethtool flag and stat names")
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	switch *machine {
-	case "platina-mk1":
-		EthtoolPrivFlagNames = mk1.EthtoolFlags
-		EthtoolStatNames = mk1.EthtoolStats
-	default:
-		fmt.Fprintf(os.Stderr, "machine %q unknown\n", *machine)
-		os.Exit(1)
-	}
 	if err := Start("xeth-test"); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -53,8 +40,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestShowInterfaces(t *testing.T) {
-	Interface.Iterate(func(entry *InterfaceEntry) error {
-		fmt.Println(entry)
-		return nil
+	Range(func(xid Xid, xeth *Xeth) bool {
+		fmt.Println(xeth)
+		return true
 	})
 }

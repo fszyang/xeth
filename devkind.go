@@ -1,4 +1,4 @@
-/* Copyright(c) 2018 Platina Systems, Inc.
+/* Copyright(c) 2018-2019 Platina Systems, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -20,32 +20,21 @@
  * sw@platina.com
  * Platina Systems, 3180 Del La Cruz Blvd, Santa Clara, CA 95054
  */
+
 package xeth
 
-import "fmt"
+type DevKind uint8
 
-const (
-	XETH_DEVTYPE_XETH_PORT = iota
-)
-const (
-	XETH_DEVTYPE_LINUX_UNKNOWN = 128 + iota
-	XETH_DEVTYPE_LINUX_VLAN
-	XETH_DEVTYPE_LINUX_VLAN_BRIDGE_PORT
-	XETH_DEVTYPE_LINUX_BRIDGE
-)
-
-type DevType uint8
-
-func (dt DevType) String() string {
-	s, found := map[DevType]string{
-		XETH_DEVTYPE_XETH_PORT:              "port",
-		XETH_DEVTYPE_LINUX_UNKNOWN:          "linux",
-		XETH_DEVTYPE_LINUX_VLAN:             "vlan",
-		XETH_DEVTYPE_LINUX_VLAN_BRIDGE_PORT: "vlan-bridge-port",
-		XETH_DEVTYPE_LINUX_BRIDGE:           "bridge",
-	}[dt]
+func (kind DevKind) String() string {
+	s, found := map[DevKind]string{
+		DevKindUnspec: "unspecified",
+		DevKindPort:   "port",
+		DevKindVlan:   "vlan",
+		DevKindBridge: "bridge",
+		DevKindLag:    "lag",
+	}[kind]
 	if !found {
-		s = fmt.Sprintf("devtype[%d]", int(dt))
+		s = "invalid"
 	}
 	return s
 }

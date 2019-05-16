@@ -1,4 +1,4 @@
-/* Copyright(c) 2018 Platina Systems, Inc.
+/* Copyright(c) 2018-2019 Platina Systems, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,27 +23,30 @@
 
 package xeth
 
-type EthtoolStat int
+import (
+	"fmt"
+	"unsafe"
+)
+
+type EthtoolStat uint32
 type MsgEthtoolStat MsgStat
 
 var EthtoolStatNames []string
-var EthtoolStatMap map[string]EthtoolStat
-
-func EthtoolStatOf(s string) (EthtoolStat, bool) {
-	if EthtoolStatMap == nil {
-		EthtoolStatMap = make(map[string]EthtoolStat)
-		for i, s := range EthtoolStatNames {
-			EthtoolStatMap[Hyphenate(s)] = EthtoolStat(i)
-		}
-	}
-	ethtoolstat, found := EthtoolStatMap[Hyphenate(s)]
-	return ethtoolstat, found
-}
 
 func (stat EthtoolStat) String() string {
-	s := "invalid"
 	if i := int(stat); i < len(EthtoolStatNames) {
-		s = EthtoolStatNames[i]
+		return EthtoolStatNames[i]
 	}
-	return s
+	return fmt.Sprint("@", uint32(stat))
+}
+
+func ToMsgEthtoolStat(buf []byte) *MsgEthtoolStat {
+	return (*MsgEthtoolStat)(unsafe.Pointer(&buf[0]))
+}
+
+func (msg *MsgEthtoolStat) Set(xid Xid, stat EthtoolStat, count uint64) {
+	msg.Header.Set(MsgKindEthtoolStat)
+	msg.Xid = uint32(xid)
+	msg.Index = uint32(stat)
+	msg.Count = count
 }

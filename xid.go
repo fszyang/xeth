@@ -1,4 +1,4 @@
-/* Copyright(c) 2018 Platina Systems, Inc.
+/* Copyright(c) 2018-2019 Platina Systems, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,11 +23,13 @@
 
 package xeth
 
-type Autoneg uint8
+import "fmt"
 
-func (autoneg Autoneg) String() string {
-	if autoneg != 0 {
-		return "on"
+type Xid uint32
+
+func (xid Xid) String() string {
+	if xid > VlanNVid {
+		return fmt.Sprintf("(%d, %d)", xid&VlanVidMask, xid/VlanNVid)
 	}
-	return "off"
+	return fmt.Sprint(uint64(xid))
 }

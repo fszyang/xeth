@@ -5,3 +5,4 @@
 *.rej
 *.swp
 *.test
+/_obj/

@@ -1,4 +1,4 @@
-/* Copyright(c) 2018 Platina Systems, Inc.
+/* Copyright(c) 2018-2019 Platina Systems, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -23,25 +23,25 @@
 
 package xeth
 
-type Ifname [IFNAMSIZ]byte
+type IfName [SizeofIfName]byte
 
-func (ifname *Ifname) cache(args ...interface{}) {
+func (ifname *IfName) cache(args ...interface{}) {
 	for _, v := range args {
 		switch t := v.(type) {
-		case *[IFNAMSIZ]uint8:
+		case *[SizeofIfName]uint8:
 			copy(ifname[:], t[:])
-		case *Ifname:
+		case *IfName:
 			copy(ifname[:], t[:])
 		case string:
 			copy(ifname[:], t)
-			if len(t) < IFNAMSIZ {
+			if len(t) < SizeofIfName {
 				ifname[len(t)] = 0
 			}
 		}
 	}
 }
 
-func (ifname *Ifname) String() string {
+func (ifname *IfName) String() string {
 	for i, c := range ifname[:] {
 		if c == 0 {
 			return string(ifname[:i])

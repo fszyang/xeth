@@ -23,21 +23,22 @@
 
 package xeth
 
-const (
-	XETH_CARRIER_OFF = iota
-	XETH_CARRIER_ON
-)
-
 type CarrierFlag uint8
 
 func (flag CarrierFlag) String() string {
-	var flags = []string{
-		"off",
-		"on",
-	}
-	s := "invalid"
-	if i := int(flag); i < len(flags) {
-		s = flags[i]
+	s := "off"
+	if flag != 0 {
+		s = "on"
 	}
 	return s
+}
+
+func (msg *MsgCarrier) Set(xid Xid, on bool) {
+	msg.Header.Set(MsgKindCarrier)
+	msg.Xid = uint32(xid)
+	if on {
+		msg.Flag = 1
+	} else {
+		msg.Flag = 0
+	}
 }

@@ -27,9 +27,18 @@ import "fmt"
 
 type Mbps uint32
 
-func (mbps Mbps) String() string {
+func (mbps Mbps) String() string { return fmt.Sprint(mbps) }
+
+func (mbps Mbps) Format(f fmt.State, c rune) {
 	if mbps == 0 {
-		return "unspecified"
+		fmt.Fprint(f, "unspecified")
+	} else {
+		fmt.Fprint(f, uint32(mbps), "Mb/s")
 	}
-	return fmt.Sprint(uint32(mbps), "Mb/s")
+}
+
+func (msg *MsgSpeed) Set(xid Xid, mbps Mbps) {
+	msg.Header.Set(MsgKindSpeed)
+	msg.Xid = uint32(xid)
+	msg.Mbps = uint32(mbps)
 }

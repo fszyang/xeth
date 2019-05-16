@@ -99,7 +99,7 @@ func (fe *MsgFibentry) NextHops() []NextHop {
 	ptr := unsafe.Pointer(fe)
 	nhs := int(fe.Nhs)
 	return *(*[]NextHop)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: uintptr(ptr) + uintptr(SizeofMsgFibentry),
+		Data: uintptr(ptr) + uintptr(SizeofMsgFibEntry),
 		Len:  nhs,
 		Cap:  nhs,
 	}))
@@ -117,12 +117,12 @@ func (fe *MsgFibentry) Prefix() *net.IPNet {
 }
 
 func (fe *MsgFibentry) String() string {
-	kind := Kind(fe.Kind)
+	kind := MsgKind(fe.Header.Kind)
 	event := FibEntryEvent(fe.Event)
 	prefix := fe.Prefix()
 	return fmt.Sprintln(kind, event, Rtn(fe.Type), prefix,
 		"netns", Netns(fe.Net),
-		"table", RtTable(fe.Id),
+		"table", RtTable(fe.Table),
 		fe.NextHops())
 }
 

@@ -1,4 +1,4 @@
-/* Copyright(c) 2018 Platina Systems, Inc.
+/* Copyright(c) 2018-2019 Platina Systems, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -22,52 +22,78 @@
  */
 package xeth
 
+import "unsafe"
+
 type LinkStat int
 type MsgLinkStat MsgStat
 
-var LinkStatMap map[string]LinkStat
-var LinkStats = []string{
-	"rx-packets",
-	"tx-packets",
-	"rx-bytes",
-	"tx-bytes",
-	"rx-errors",
-	"tx-errors",
-	"rx-dropped",
-	"tx-dropped",
-	"multicast",
-	"collisions",
-	"rx-length-errors",
-	"rx-over-errors",
-	"rx-crc-errors",
-	"rx-frame-errors",
-	"rx-fifo-errors",
-	"rx-missed-errors",
-	"tx-aborted-errors",
-	"tx-carrier-errors",
-	"tx-fifo-errors",
-	"tx-heartbeat-errors",
-	"tx-window-errors",
-	"rx-compressed",
-	"tx-compressed",
-	"rx-nohandler",
-}
-
-func LinkStatOf(s string) (LinkStat, bool) {
-	if LinkStatMap == nil {
-		LinkStatMap = make(map[string]LinkStat)
-		for i, s := range LinkStats {
-			LinkStatMap[Hyphenate(s)] = LinkStat(i)
-		}
-	}
-	linkstat, found := LinkStatMap[Hyphenate(s)]
-	return linkstat, found
-}
+const (
+	LinkStatRxPackets LinkStat = iota
+	LinkStatTxPackets
+	LinkStatRxBytes
+	LinkStatTxBytes
+	LinkStatRxErrors
+	LinkStatTxErrors
+	LinkStatRxDropped
+	LinkStatTxDropped
+	LinkStatMulticast
+	LinkStatCollisions
+	LinkStatRxLengthErrors
+	LinkStatRxOverErrors
+	LinkStatRxCrcErrors
+	LinkStatRxFrameErrors
+	LinkStatRxFifoErrors
+	LinkStatRxMissedErrors
+	LinkStatTxAbortedErrors
+	LinkStatTxCarrierErrors
+	LinkStatTxFifoErrors
+	LinkStatTxHeartbeatErrors
+	LinkStatTxWindowErrors
+	LinkStatRxCompressed
+	LinkStatTxCompressed
+	LinkStatRxNohandler
+)
 
 func (stat LinkStat) String() string {
-	s := "invalid"
-	if i := int(stat); i < len(LinkStats) {
-		s = LinkStats[i]
+	s, found := map[LinkStat]string{
+		LinkStatRxPackets:         "rx-packets",
+		LinkStatTxPackets:         "tx-packets",
+		LinkStatRxBytes:           "rx-bytes",
+		LinkStatTxBytes:           "tx-bytes",
+		LinkStatRxErrors:          "rx-errors",
+		LinkStatTxErrors:          "tx-errors",
+		LinkStatRxDropped:         "rx-dropped",
+		LinkStatTxDropped:         "tx-dropped",
+		LinkStatMulticast:         "multicast",
+		LinkStatCollisions:        "collisions",
+		LinkStatRxLengthErrors:    "rx-length-errors",
+		LinkStatRxOverErrors:      "rx-over-errors",
+		LinkStatRxCrcErrors:       "rx-crc-errors",
+		LinkStatRxFrameErrors:     "rx-frame-errors",
+		LinkStatRxFifoErrors:      "rx-fifo-errors",
+		LinkStatRxMissedErrors:    "rx-missed-errors",
+		LinkStatTxAbortedErrors:   "tx-aborted-errors",
+		LinkStatTxCarrierErrors:   "tx-carrier-errors",
+		LinkStatTxFifoErrors:      "tx-fifo-errors",
+		LinkStatTxHeartbeatErrors: "tx-heartbeat-errors",
+		LinkStatTxWindowErrors:    "tx-window-errors",
+		LinkStatRxCompressed:      "rx-compressed",
+		LinkStatTxCompressed:      "tx-compressed",
+		LinkStatRxNohandler:       "rx-nohandler",
+	}[stat]
+	if found {
+		return s
 	}
-	return s
+	return "invalid-link-stat"
+}
+
+func ToMsgLinkStat(buf []byte) *MsgLinkStat {
+	return (*MsgLinkStat)(unsafe.Pointer(&buf[0]))
+}
+
+func (msg *MsgLinkStat) Set(xid Xid, stat LinkStat, count uint64) {
+	msg.Header.Set(MsgKindLinkStat)
+	msg.Xid = uint32(xid)
+	msg.Index = uint32(stat)
+	msg.Count = count
 }

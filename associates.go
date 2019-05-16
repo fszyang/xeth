@@ -1,4 +1,4 @@
-/* Copyright(c) 2018 Platina Systems, Inc.
+/* Copyright(c) 2018-2019 Platina Systems, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -25,44 +25,36 @@ package xeth
 
 import (
 	"fmt"
-	"net"
+	"sync"
 )
 
-type IfIndex int32
-type IfLinkIndex int32
-
-type IfInfo struct {
-	Name string
-	Xid
-	DevKind
-	IfIndex
-	IfLinkIndex
-	Netns
-	IfInfoReason
-	net.Flags
-	net.HardwareAddr
+// The upper or lower entries associated with an interface entry
+type Associates struct {
+	sync.Map
 }
 
-func (ifinfo *IfInfo) String() string { return fmt.Sprint(ifinfo) }
+func (associates *Associates) NotEmpty() bool {
+	t := false
+	associates.Range(func(k, v interface{}) bool {
+		t = true
+		return false
+	})
+	return t
+}
 
-func (ifinfo *IfInfo) Format(f fmt.State, c rune) {
-	fmt.Fprint(f, ifinfo.IfIndex, ": ", ifinfo.Name)
-	if ifinfo.IfLinkIndex > 0 {
-		links := Matching(ifinfo.IfLinkIndex)
-		if len(links) == 1 {
-			fmt.Fprint(f, "@", links[0].IfInfo.Name)
-		} else {
-			fmt.Fprint(f, "@", ifinfo.IfLinkIndex)
+func (associates *Associates) String() string {
+	return fmt.Sprint(associates)
+}
+
+func (associates *Associates) Format(f fmt.State, c rune) {
+	sep := false
+	associates.Range(func(k, v interface{}) bool {
+		xeth := v.(*Xeth)
+		if sep {
+			f.Write([]byte(", "))
 		}
-	}
-	fmt.Fprint(f, ": xid ", ifinfo.Xid)
-	if ifinfo.Flags != 0 {
-		fmt.Fprint(f, " <", ifinfo.Flags, ">")
-	}
-	fmt.Fprint(f, " reason ", ifinfo.IfInfoReason)
-	if ifinfo.Netns != DefaultNetns {
-		fmt.Fprint(f, " netns ", ifinfo.Netns)
-	}
-	fmt.Fprint(f, "\n    link/", ifinfo.DevKind)
-	fmt.Fprint(f, " ", ifinfo.HardwareAddr)
+		f.Write([]byte(xeth.Name))
+		sep = true
+		return true
+	})
 }
