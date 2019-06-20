@@ -6,181 +6,211 @@ package xeth
 const (
 	VlanVidMask	= 0xfff
 	VlanNVid	= 0x1000
+)
 
-	MsgVersion	= 0x2
-
-	IflaUnspec	= 0x0
-	IflaXid		= 0x1
-	IflaVid		= 0x2
-	IflaKind	= 0x3
-
+const (
 	DevKindUnspec	= 0x0
 	DevKindPort	= 0x1
 	DevKindVlan	= 0x2
 	DevKindBridge	= 0x3
 	DevKindLag	= 0x4
-
-	MsgKindBreak		= 0x0
-	MsgKindLinkStat		= 0x1
-	MsgKindEthtoolStat	= 0x2
-	MsgKindEthtoolFlags	= 0x3
-	MsgKindEthtoolSettings	= 0x4
-	MsgKindDumpIfInfo	= 0x5
-	MsgKindCarrier		= 0x6
-	MsgKindSpeed		= 0x7
-	MsgKindIfInfo		= 0x8
-	MsgKindIfa		= 0x9
-	MsgKindDumpFibInfo	= 0xa
-	MsgKindFibEntry		= 0xb
-	MsgKindIfDel		= 0xc
-	MsgKindNeighUpdate	= 0xd
-	MsgKindIfVid		= 0xe
-	MsgKindChangeUpperXid	= 0xf
-
-	CarrierOff	= 0x0
-	CarrierOn	= 0x1
-
-	IfInfoReasonNew		= 0x0
-	IfInfoReasonDel		= 0x1
-	IfInfoReasonUp		= 0x2
-	IfInfoReasonDown	= 0x3
-	IfInfoReasonDump	= 0x4
-	IfInfoReasonReg		= 0x5
-	IfInfoReasonUnreg	= 0x6
-
-	SizeofIfName			= 0x10
-	SizeofEthAddr			= 0x6
-	SizeofJumboFrame		= 0x2600
-	SizeofMsg			= 0x10
-	SizeofMsgBreak			= 0x10
-	SizeofMsgCarrier		= 0x18
-	SizeofMsgChangeUpperXid		= 0x20
-	SizeofMsgDumpFibInfo		= 0x10
-	SizeofMsgDumpIfInfo		= 0x10
-	SizeofMsgEthtoolFlags		= 0x18
-	SizeofMsgEthtoolSettings	= 0x38
-	SizeofMsgIfa			= 0x20
-	SizeofMsgIfInfo			= 0x40
-	SizeofNextHop			= 0x18
-	SizeofMsgFibEntry		= 0x28
-	SizeofMsgNeighUpdate		= 0x38
-	SizeofMsgSpeed			= 0x18
-	SizeofMsgStat			= 0x20
 )
 
-type MsgHeader struct {
-	Z64	uint64
-	Z32	uint32
-	Z16	uint16
-	Version	uint8
-	Kind	uint8
+const (
+	SHUT_RD	= iota
+	SHUT_WR
+	SHUT_RDWR
+)
+
+const (
+	FIB_EVENT_ENTRY_REPLACE	= iota
+	FIB_EVENT_ENTRY_APPEND
+	FIB_EVENT_ENTRY_ADD
+	FIB_EVENT_ENTRY_DEL
+	FIB_EVENT_RULE_ADD
+	FIB_EVENT_RULE_DEL
+	FIB_EVENT_NH_ADD
+	FIB_EVENT_NH_DEL
+)
+
+const (
+	RTN_UNSPEC	= iota
+	RTN_UNICAST
+	RTN_LOCAL
+	RTN_BROADCAST
+	RTN_ANYCAST
+	RTN_MULTICAST
+	RTN_BLACKHOLE
+	RTN_UNREACHABLE
+	RTN_PROHIBIT
+	RTN_THROW
+	RTN_NAT
+	RTN_XRESOLVE
+	__RTN_MAX
+)
+
+const RTN_MAX = __RTN_MAX - 1
+
+const (
+	RTNH_F_DEAD		= 1
+	RTNH_F_PERVASIVE	= 2
+	RTNH_F_ONLINK		= 4
+	RTNH_F_OFFLOAD		= 8
+	RTNH_F_LINKDOWN		= 16
+	RTNH_F_UNRESOLVED	= 32
+)
+
+const (
+	RT_SCOPE_UNIVERSE	= 0
+	RT_SCOPE_SITE		= 200
+	RT_SCOPE_LINK		= 253
+	RT_SCOPE_HOST		= 254
+	RT_SCOPE_NOWHERE	= 255
+)
+
+const (
+	RT_TABLE_UNSPEC	= 0
+
+	RT_TABLE_COMPAT		= 252
+	RT_TABLE_DEFAULT	= 253
+	RT_TABLE_MAIN		= 254
+	RT_TABLE_LOCAL		= 255
+	RT_TABLE_MAX		= 0xFFFFFFFF
+)
+
+const (
+	LinkStatRxPackets	= iota
+	LinkStatTxPackets
+	LinkStatRxBytes
+	LinkStatTxBytes
+	LinkStatRxErrors
+	LinkStatTxErrors
+	LinkStatRxDropped
+	LinkStatTxDropped
+	LinkStatMulticast
+	LinkStatCollisions
+	LinkStatRxLengthErrors
+	LinkStatRxOverErrors
+	LinkStatRxCrcErrors
+	LinkStatRxFrameErrors
+	LinkStatRxFifoErrors
+	LinkStatRxMissedErrors
+	LinkStatTxAbortedErrors
+	LinkStatTxCarrierErrors
+	LinkStatTxFifoErrors
+	LinkStatTxHeartbeatErrors
+	LinkStatTxWindowErrors
+	LinkStatRxCompressed
+	LinkStatTxCompressed
+	LinkStatRxNohandler
+)
+
+var IndexofLinkStat = map[string]int{
+	"rx-packets":		LinkStatRxPackets,
+	"tx-packets":		LinkStatTxPackets,
+	"rx-bytes":		LinkStatRxBytes,
+	"tx-bytes":		LinkStatTxBytes,
+	"rx-errors":		LinkStatRxErrors,
+	"tx-errors":		LinkStatTxErrors,
+	"rx-dropped":		LinkStatRxDropped,
+	"tx-dropped":		LinkStatTxDropped,
+	"multicast":		LinkStatMulticast,
+	"collisions":		LinkStatCollisions,
+	"rx-length-errors":	LinkStatRxLengthErrors,
+	"rx-over-errors":	LinkStatRxOverErrors,
+	"rx-crc-errors":	LinkStatRxCrcErrors,
+	"rx-frame-errors":	LinkStatRxFrameErrors,
+	"rx-fifo-errors":	LinkStatRxFifoErrors,
+	"rx-missed-errors":	LinkStatRxMissedErrors,
+	"tx-aborted-errors":	LinkStatTxAbortedErrors,
+	"tx-carrier-errors":	LinkStatTxCarrierErrors,
+	"tx-fifo-errors":	LinkStatTxFifoErrors,
+	"tx-heartbeat-errors":	LinkStatTxHeartbeatErrors,
+	"tx-window-errors":	LinkStatTxWindowErrors,
+	"rx-compressed":	LinkStatRxCompressed,
+	"tx-compressed":	LinkStatTxCompressed,
+	"rx-nohandler":		LinkStatRxNohandler,
 }
 
-type MsgBreak struct {
-	Header MsgHeader
-}
+const (
+	AUTONEG_DISABLE	= 0
+	AUTONEG_ENABLE	= 1
+	AUTONEG_UNKNOWN	= 0xff
+)
 
-type MsgCarrier struct {
-	Header	MsgHeader
-	Xid	uint32
-	Flag	uint8
-	Pad	[3]uint8
-}
+const (
+	DUPLEX_HALF	= 0
+	DUPLEX_FULL	= 1
+	DUPLEX_UNKNOWN	= 0xff
+)
 
-type MsgChangeUpperXid struct {
-	Header	MsgHeader
-	Upper	uint32
-	Lower	uint32
-	Linking	uint8
-	Pad	[7]uint8
-}
+const (
+	PORT_TP		= 0
+	PORT_AUI	= 1
+	PORT_MII	= 2
+	PORT_FIBRE	= 3
+	PORT_BNC	= 4
+	PORT_DA		= 5
+	PORT_NONE	= 0xef
+	PORT_OTHER	= 0xff
+)
 
-type MsgEthtoolFlags struct {
-	Header	MsgHeader
-	Xid	uint32
-	Flags	uint32
-}
+const (
+	ETH_TP_MDI_INVALID	= 0
+	ETH_TP_MDI		= 1
+	ETH_TP_MDI_X		= 2
+	ETH_TP_MDI_AUTO		= 3
+)
 
-type MsgEthtoolSettings struct {
-	Header				MsgHeader
-	Xid				uint32
-	Speed				uint32
-	Duplex				uint8
-	Port				uint8
-	Phy_address			uint8
-	Autoneg				uint8
-	Mdio_support			uint8
-	Eth_tp_mdix			uint8
-	Eth_tp_mdix_ctrl		uint8
-	Link_mode_masks_nwords		uint8
-	Link_modes_supported		[2]uint32
-	Link_modes_advertising		[2]uint32
-	Link_modes_lp_advertising	[2]uint32
-}
-
-type NextHop struct {
-	Ifindex	int32
-	Weight	int32
-	Flags	uint32
-	Gw	uint32
-	Scope	uint8
-	Pad	[7]uint8
-}
-
-type MsgFibentry struct {
-	Header	MsgHeader
-	Net	uint64
-	Address	uint32
-	Mask	uint32
-	Event	uint8
-	Nhs	uint8
-	Tos	uint8
-	Type	uint8
-	Table	uint32
-}
-
-type MsgIfa struct {
-	Header	MsgHeader
-	Xid	uint32
-	Event	uint32
-	Address	uint32
-	Mask	uint32
-}
-
-type MsgIfinfo struct {
-	Header		MsgHeader
-	Xid		uint32
-	Reserved	uint32
-	Ifname		[16]uint8
-	Net		uint64
-	Ifindex		int32
-	Flags		uint32
-	Addr		[6]uint8
-	Kind		uint8
-	Reason		uint8
-}
-
-type MsgNeighUpdate struct {
-	Header		MsgHeader
-	Net		uint64
-	Ifindex		int32
-	Family		uint8
-	Len		uint8
-	Reserved	uint16
-	Dst		[16]uint8
-	Lladdr		[6]uint8
-	Pad		[2]uint8
-}
-
-type MsgSpeed struct {
-	Header	MsgHeader
-	Xid	uint32
-	Mbps	uint32
-}
-
-type MsgStat struct {
-	Header	MsgHeader
-	Xid	uint32
-	Index	uint32
-	Count	uint64
-}
+const (
+	ETHTOOL_LINK_MODE_10baseT_Half	= iota
+	ETHTOOL_LINK_MODE_10baseT_Full
+	ETHTOOL_LINK_MODE_100baseT_Half
+	ETHTOOL_LINK_MODE_100baseT_Full
+	ETHTOOL_LINK_MODE_1000baseT_Half
+	ETHTOOL_LINK_MODE_1000baseT_Full
+	ETHTOOL_LINK_MODE_Autoneg
+	ETHTOOL_LINK_MODE_TP
+	ETHTOOL_LINK_MODE_AUI
+	ETHTOOL_LINK_MODE_MII
+	ETHTOOL_LINK_MODE_FIBRE
+	ETHTOOL_LINK_MODE_BNC
+	ETHTOOL_LINK_MODE_10000baseT_Full
+	ETHTOOL_LINK_MODE_Pause
+	ETHTOOL_LINK_MODE_Asym_Pause
+	ETHTOOL_LINK_MODE_2500baseX_Full
+	ETHTOOL_LINK_MODE_Backplane
+	ETHTOOL_LINK_MODE_1000baseKX_Full
+	ETHTOOL_LINK_MODE_10000baseKX4_Full
+	ETHTOOL_LINK_MODE_10000baseKR_Full
+	ETHTOOL_LINK_MODE_10000baseR_FEC
+	ETHTOOL_LINK_MODE_20000baseMLD2_Full
+	ETHTOOL_LINK_MODE_20000baseKR2_Full
+	ETHTOOL_LINK_MODE_40000baseKR4_Full
+	ETHTOOL_LINK_MODE_40000baseCR4_Full
+	ETHTOOL_LINK_MODE_40000baseSR4_Full
+	ETHTOOL_LINK_MODE_40000baseLR4_Full
+	ETHTOOL_LINK_MODE_56000baseKR4_Full
+	ETHTOOL_LINK_MODE_56000baseCR4_Full
+	ETHTOOL_LINK_MODE_56000baseSR4_Full
+	ETHTOOL_LINK_MODE_56000baseLR4_Full
+	ETHTOOL_LINK_MODE_25000baseCR_Full
+	ETHTOOL_LINK_MODE_25000baseKR_Full
+	ETHTOOL_LINK_MODE_25000baseSR_Full
+	ETHTOOL_LINK_MODE_50000baseCR2_Full
+	ETHTOOL_LINK_MODE_50000baseKR2_Full
+	ETHTOOL_LINK_MODE_100000baseKR4_Full
+	ETHTOOL_LINK_MODE_100000baseSR4_Full
+	ETHTOOL_LINK_MODE_100000baseCR4_Full
+	ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full
+	ETHTOOL_LINK_MODE_50000baseSR2_Full
+	ETHTOOL_LINK_MODE_1000baseX_Full
+	ETHTOOL_LINK_MODE_10000baseCR_Full
+	ETHTOOL_LINK_MODE_10000baseSR_Full
+	ETHTOOL_LINK_MODE_10000baseLR_Full
+	ETHTOOL_LINK_MODE_10000baseLRM_Full
+	ETHTOOL_LINK_MODE_10000baseER_Full
+	ETHTOOL_LINK_MODE_2500baseT_Full
+	ETHTOOL_LINK_MODE_5000baseT_Full
+	ETHTOOL_LINK_MODE_NBITS
+)

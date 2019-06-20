@@ -1,72 +1,117 @@
-/* XETH driver sideband control.
- *
- * Copyright(c) 2018 Platina Systems, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * The full GNU General Public License is included in this distribution in
- * the file called "COPYING".
- *
- * Contact Information:
- * sw@platina.com
- * Platina Systems, 3180 Del La Cruz Blvd, Santa Clara, CA 95054
- */
+// Copyright © 2018-2019 Platina Systems, Inc. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// This package provides a sideband control interface to an XETH driver.
+// Usage,
+//	err := xeth.Init()
+//	defer xeth.Close()
+//	xeth.DumpIfInfo()
+//	for buf := range xeth.RxCh {
+//		if xeth.Class(buf) == xeth.ClassBreak {
+//			break
+//		}
+//		msg := xeth.Parse(buf)
+//		...
+//		xeth.Pool(msg)
+//	}
+//	...
+//	xeth.DumpFib()
+//	for buf := range xeth.RxCh {
+//		if xeth.Class(buf) == xeth.ClassBreak {
+//			break
+//		}
+//		msg := xeth.Parse(buf)
+//		...
+//		xeth.Pool(msg)
+//	}
+//	...
+//	var wg sync.WaitGroup
+//	wg.Add(1)
+//	go func() {
+//		defer wg.Done()
+//		for buf := range xeth.RxCh {
+//			msg := xeth.Parse(buf)
+//			...
+//			xeth.Pool(msg)
+//		}
+//	}()
+//	...
+//	wg.Wait()
 package xeth
 
 import (
-	"fmt"
 	"io"
 	"net"
 	"os"
+	"os/signal"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
+	"unsafe"
+
+	"github.com/platinasystems/xeth/internal"
 )
 
 //go:generate sh -c "go tool cgo -godefs godefs.go > godefed.go"
+//go:generate sh -c "go tool cgo -godefs internal/godefs.go > internal/godefed.go"
 
 const netname = "unixpacket"
 
-var (
-	Count struct {
-		Tx struct {
-			Sent, Dropped uint64
-		}
-	}
-	// Receive message channel feed from sock by gorx
-	RxCh <-chan []byte
-
-	sb struct {
-		name string
-		addr *net.UnixAddr
-		sock *net.UnixConn
-
-		rxch chan []byte
-		txch chan []byte
-	}
+const (
+	ClassUnknown = iota
+	ClassBreak
+	ClassInterface
+	ClassAddress
+	ClassFib
+	ClassNeighbor
 )
 
-// Connect to @xeth socket and run channel service routines
-// driver :: XETH driver name (e.g. "platina-mk1")
-func Start(driver string) error {
-	var err error
-	sb.name = driver
-	sb.addr, err = net.ResolveUnixAddr(netname, "@xeth")
+type Counter uint64
+type SigErr struct{ os.Signal }
+
+type Break struct{}
+
+type Buffer interface{ buffer }
+
+type pooler interface {
+	Pool()
+}
+
+var (
+	Cloned  Counter       // cloned received messages
+	Parsed  Counter       // messages parsed by user
+	Dropped Counter       // messages that overflowed transmit channel
+	Sent    Counter       // messages and exception frames sent to driver
+	RxCh    <-chan Buffer // cloned msgs received from driver
+)
+
+var (
+	sock *net.UnixConn
+
+	loch chan buffer // low priority, leaky-bucket tx channel
+	hich chan buffer // high priority, unbuffered, no-drop tx channel
+	rxch chan Buffer // deep channel of cloned msgs received from driver
+
+	sigch chan os.Signal
+
+	wg sync.WaitGroup
+
+	sigErr error // signal that terminated service routines
+	rxErr  error // error that stopped the rx service
+	txErr  error // error that stopped the tx service
+)
+
+// Connect @xeth socket and run channel service routines.
+func Init() error {
+	addr, err := net.ResolveUnixAddr(netname, "@xeth")
 	if err != nil {
 		return err
 	}
+
 	for {
-		sb.sock, err = net.DialUnix(netname, nil, sb.addr)
+		sock, err = net.DialUnix(netname, nil, addr)
 		if err == nil {
 			break
 		}
@@ -74,153 +119,352 @@ func Start(driver string) error {
 			return err
 		}
 	}
-	sb.rxch = make(chan []byte, 4)
-	sb.txch = make(chan []byte, 4)
-	RxCh = sb.rxch
+
+	loch = make(chan buffer, 4)
+	hich = make(chan buffer)
+	rxch = make(chan Buffer, 1024)
+	sigch = make(chan os.Signal, 1)
+
+	RxCh = rxch
+
+	wg.Add(2)
 	go gorx()
 	go gotx()
 
-	// load Interface cache
-	DumpIfInfo()
-	UntilBreak(func(buf []byte) error {
-		return nil
-	})
-
 	return nil
 }
 
-// Close @xeth socket and shutdown service routines
-func Stop() {
-	const (
-		SHUT_RD = iota
-		SHUT_WR
-		SHUT_RDWR
-	)
-	if sb.sock == nil {
-		return
+func Class(buf Buffer) int {
+	switch kind(buf) {
+	case internal.MsgKindBreak:
+		return ClassBreak
+	case internal.MsgKindChangeUpperXid,
+		internal.MsgKindEthtoolFlags,
+		internal.MsgKindEthtoolLinkModesSupported,
+		internal.MsgKindEthtoolLinkModesAdvertising,
+		internal.MsgKindEthtoolLinkModesLPAdvertising,
+		internal.MsgKindEthtoolSettings,
+		internal.MsgKindIfInfo:
+		return ClassInterface
+	case internal.MsgKindIfa, internal.MsgKindIfa6:
+		return ClassAddress
+	case internal.MsgKindFibEntry, internal.MsgKindFib6Entry:
+		return ClassFib
+	case internal.MsgKindNeighUpdate:
+		return ClassNeighbor
+	default:
+		return ClassUnknown
 	}
-	close(sb.txch)
-	sock := sb.sock
-	sb.sock = nil
-	if f, err := sock.File(); err == nil {
+}
+
+// Close socket and shutdown service routines
+func Close() error {
+	if sock == nil {
+		return os.ErrClosed
+	}
+	sigch <- syscall.SIGKILL
+	close(loch)
+	close(hich)
+	wg.Wait()
+	t := sock
+	sock = nil
+	f, err := t.File()
+	if err == nil {
 		syscall.Shutdown(int(f.Fd()), SHUT_RDWR)
 	}
-	sock.Close()
-	Range(func(xid Xid, xeth *Xeth) bool {
-		xeth.Uppers.Range(func(k, v interface{}) bool {
-			xeth.Uppers.Delete(k.(Xid))
-			return true
-		})
-		xeth.Lowers.Range(func(k, v interface{}) bool {
-			xeth.Lowers.Delete(k.(Xid))
-			return true
-		})
-		Delete(xid)
-		return true
-	})
-}
-
-// Return driver name (e.g. "platina-mk1")
-func String() string { return sb.name }
-
-// Send carrier state change message
-func Carrier(xid Xid, on bool) error {
-	buf := Pool.Get(SizeofMsgCarrier)
-	defer Pool.Put(buf)
-	ToMsgCarrier(buf).Set(xid, on)
-	return tx(buf, 0)
-}
-
-// Send DumpFib request
-func DumpFib() error {
-	buf := Pool.Get(SizeofMsgDumpFibInfo)
-	defer Pool.Put(buf)
-	ToMsgHeader(buf).Set(MsgKindDumpFibInfo)
-	return tx(buf, 0)
-}
-
-// Send DumpIfInfo request then flush RxCh until break to cache ifinfos
-func CacheIfInfo() {
-	if err := DumpIfInfo(); err == nil {
-		UntilBreak(func(buf []byte) error { return nil })
-	}
-}
-
-// Send DumpIfinfo request
-func DumpIfInfo() error {
-	buf := Pool.Get(SizeofMsgDumpIfInfo)
-	defer Pool.Put(buf)
-	ToMsgHeader(buf).Set(MsgKindDumpIfInfo)
-	return tx(buf, 0)
-}
-
-// Send stat update message
-func SetLinkStat(xid Xid, stat LinkStat, count uint64) error {
-	buf := Pool.Get(SizeofMsgStat)
-	defer Pool.Put(buf)
-	ToMsgLinkStat(buf).Set(xid, stat, count)
-	return tx(buf, 10*time.Millisecond)
-}
-
-func SetEthtoolStat(xid Xid, stat EthtoolStat, count uint64) error {
-	buf := Pool.Get(SizeofMsgStat)
-	defer Pool.Put(buf)
-	ToMsgEthtoolStat(buf).Set(xid, stat, count)
-	return tx(buf, 10*time.Millisecond)
-}
-
-// Send speed change message
-func Speed(xid Xid, mbps Mbps) error {
-	buf := Pool.Get(SizeofMsgSpeed)
-	defer Pool.Put(buf)
-	ToMsgSpeed(buf).Set(xid, mbps)
-	return tx(buf, 0)
-}
-
-// Send through leaky bucket
-func Tx(buf []byte) {
-	msg := Pool.Get(len(buf))
-	copy(msg, buf)
-	select {
-	case sb.txch <- msg:
-		Count.Tx.Sent++
-	default:
-		Count.Tx.Dropped++
-		Pool.Put(msg)
-	}
-}
-
-func UntilBreak(f func([]byte) error) error {
-	for buf := range RxCh {
-		if KindOf(buf) == MsgKindBreak {
-			Pool.Put(buf)
-			break
+	t.Close()
+	if err == nil {
+		if err = rxErr; err == nil {
+			if err = txErr; err == nil {
+				err = sigErr
+			}
 		}
-		err := f(buf)
-		Pool.Put(buf)
-		if err != nil {
-			return err
+	}
+	return err
+}
+
+// request fib dump
+func DumpFib() {
+	buf := newBuffer(internal.SizeofMsgDumpFibInfo)
+	msg := (*internal.MsgHeader)(buf.pointer())
+	msg.Set(internal.MsgKindDumpFibInfo)
+	hich <- buf
+}
+
+// request ifinfo dump
+func DumpIfInfo() {
+	buf := newBuffer(internal.SizeofMsgDumpIfInfo)
+	msg := (*internal.MsgHeader)(buf.pointer())
+	msg.Set(internal.MsgKindDumpIfInfo)
+	hich <- buf
+}
+
+// Send an exception frame to driver through leaky-bucket channel.
+func ExceptionFrame(b []byte) {
+	queue(cloneBuffer(b))
+}
+
+// true if err is type *SigErr
+func IsSignal(err error) bool {
+	_, match := err.(*SigErr)
+	return match
+}
+
+// parse driver message and cache ifinfo in xid maps.
+func Parse(buf Buffer) interface{} {
+	defer Parsed.inc()
+	defer buf.pool()
+	switch kind(buf) {
+	case internal.MsgKindBreak:
+		return Break{}
+	case internal.MsgKindChangeUpperXid:
+		msg := (*internal.MsgChangeUpperXid)(buf.pointer())
+		lower := Xid(msg.Lower)
+		upper := Xid(msg.Upper)
+		if msg.Linking != 0 {
+			return lower.Join(upper)
+		} else {
+			return lower.Quit(upper)
 		}
+	case internal.MsgKindEthtoolFlags:
+		msg := (*internal.MsgEthtoolFlags)(buf.pointer())
+		xid := Xid(msg.Xid)
+		return xid.ethtoolFlags(msg.Flags)
+	case internal.MsgKindEthtoolLinkModesSupported:
+		msg := (*internal.MsgEthtoolLinkModes)(buf.pointer())
+		xid := Xid(msg.Xid)
+		return xid.supportedLinkModes(msg.Modes())
+	case internal.MsgKindEthtoolLinkModesAdvertising:
+		msg := (*internal.MsgEthtoolLinkModes)(buf.pointer())
+		xid := Xid(msg.Xid)
+		return xid.advertisingLinkModes(msg.Modes())
+	case internal.MsgKindEthtoolLinkModesLPAdvertising:
+		msg := (*internal.MsgEthtoolLinkModes)(buf.pointer())
+		xid := Xid(msg.Xid)
+		return xid.lpadvertisingLinkModes(msg.Modes())
+	case internal.MsgKindEthtoolSettings:
+		msg := (*internal.MsgEthtoolSettings)(buf.pointer())
+		xid := Xid(msg.Xid)
+		return xid.ethtoolSettings(msg)
+	case internal.MsgKindFibEntry:
+		msg := (*internal.MsgFibEntry)(buf.pointer())
+		return fib4(msg)
+	case internal.MsgKindFib6Entry:
+		msg := (*internal.MsgFib6Entry)(buf.pointer())
+		return fib6(msg)
+	case internal.MsgKindIfa:
+		msg := (*internal.MsgIfa)(buf.pointer())
+		xid := Xid(msg.Xid)
+		if msg.Event == internal.IFA_ADD {
+			return xid.addIP(msg.Address, msg.Mask)
+		} else {
+			return xid.delIP(msg.Address, msg.Mask)
+		}
+	case internal.MsgKindIfa6:
+		msg := (*internal.MsgIfa6)(buf.pointer())
+		xid := Xid(msg.Xid)
+		if msg.Event == internal.IFA_ADD {
+			addr := []byte(msg.Address[:])
+			length := int(msg.Length)
+			return xid.addIP6(addr, length)
+		} else {
+			return xid.delIP6(msg.Address[:])
+		}
+	case internal.MsgKindIfInfo:
+		msg := (*internal.MsgIfInfo)(buf.pointer())
+		xid := Xid(msg.Xid)
+		switch msg.Reason {
+		case internal.IfInfoReasonNew:
+			return xid.ifinfo(msg)
+		case internal.IfInfoReasonDump:
+			return xid.ifinfo(msg)
+		case internal.IfInfoReasonDel:
+			return xid.del()
+		case internal.IfInfoReasonUp:
+			return xid.up()
+		case internal.IfInfoReasonDown:
+			return xid.down()
+		case internal.IfInfoReasonReg:
+			netns := NetNs(msg.Net)
+			return xid.reg(netns)
+		case internal.IfInfoReasonUnreg:
+			return xid.unreg()
+		}
+	case internal.MsgKindNeighUpdate:
+		msg := (*internal.MsgNeighUpdate)(buf.pointer())
+		return neighbor(msg)
 	}
 	return nil
 }
 
-func UntilSig(sig <-chan os.Signal, f func([]byte) error) error {
-	for {
-		select {
-		case <-sig:
-			return nil
-		case buf, ok := <-RxCh:
-			if !ok {
-				return nil
+func Pool(msg interface{}) {
+	if method, found := msg.(pooler); found {
+		method.Pool()
+	}
+}
+
+// Send carrier change to driver through hi-priority channel.
+func SetCarrier(xid Xid, on bool) {
+	buf := newBuffer(internal.SizeofMsgCarrier)
+	msg := (*internal.MsgCarrier)(buf.pointer())
+	msg.Header.Set(internal.MsgKindCarrier)
+	msg.Xid = uint32(xid)
+	if on {
+		msg.Flag = internal.CarrierOn
+	} else {
+		msg.Flag = internal.CarrierOff
+	}
+	hich <- buf
+}
+
+// Send ethtool stat change to driver through leaky-bucket channel.
+func SetEthtoolStat(xid Xid, stat uint32, n uint64) {
+	setStat(internal.MsgKindEthtoolStat, xid, stat, n)
+}
+
+// Send link stat change to driver through leaky-bucket channel.
+func SetLinkStat(xid Xid, stat uint32, n uint64) {
+	setStat(internal.MsgKindLinkStat, xid, stat, n)
+}
+
+// Send speed change to driver through hi-priority channel.
+func SetSpeed(xid Xid, mbps uint32) {
+	buf := newBuffer(internal.SizeofMsgSpeed)
+	msg := (*internal.MsgSpeed)(buf.pointer())
+	msg.Header.Set(internal.MsgKindSpeed)
+	msg.Xid = uint32(xid)
+	msg.Mbps = mbps
+	hich <- buf
+}
+
+func gorx() {
+	const minrxto = 10 * time.Millisecond
+	const maxrxto = 320 * time.Millisecond
+
+	rxto := minrxto
+	rxbuf := make([]byte, PageSize, PageSize)
+	rxoob := make([]byte, PageSize, PageSize)
+	ptr := unsafe.Pointer(&rxbuf[0])
+	h := (*internal.MsgHeader)(ptr)
+
+	signal.Notify(sigch, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP,
+		syscall.SIGQUIT)
+
+	defer func() {
+		rxbuf = rxbuf[:0]
+		rxoob = rxoob[:0]
+		signal.Stop(sigch)
+		close(rxch)
+		wg.Done()
+	}()
+
+	for !signaled() {
+		rxErr = sock.SetReadDeadline(time.Now().Add(rxto))
+		if rxErr != nil {
+			break
+		}
+		n, noob, flags, addr, err := sock.ReadMsgUnix(rxbuf, rxoob)
+		_ = noob
+		_ = flags
+		_ = addr
+		if signaled() {
+			break
+		}
+		if n == 0 || isTimeout(err) {
+			if rxto < maxrxto {
+				rxto *= 2
 			}
-			err := f(buf)
-			Pool.Put(buf)
-			if err != nil {
-				return err
+		} else if err != nil {
+			e, ok := err.(*os.SyscallError)
+			if !ok || e.Err.Error() != "EOF" {
+				rxErr = err
 			}
+			break
+		} else if rxErr = h.Validate(rxbuf[:n]); rxErr != nil {
+			break
+		} else {
+			rxto = minrxto
+			rxch <- cloneBuffer(rxbuf[:n])
+			Cloned.inc()
 		}
 	}
+}
+
+func gotx() {
+	defer wg.Done()
+	for txErr == nil {
+		select {
+		case buf, ok := <-hich:
+			if ok {
+				txErr = tx(buf, 0)
+			} else {
+				return
+			}
+		case buf, ok := <-loch:
+			if ok {
+				txErr = tx(buf, 10*time.Millisecond)
+			} else {
+				return
+			}
+		}
+		if txErr == nil {
+			Sent.inc()
+		}
+	}
+}
+
+func kind(buf buffer) uint8 {
+	return (*internal.MsgHeader)(buf.pointer()).Kind
+}
+
+// Send through low-priority, leaky-bucket.
+func queue(buf buffer) {
+	select {
+	case loch <- buf:
+	default:
+		buf.pool()
+		Dropped.inc()
+	}
+}
+
+func setStat(kind uint8, xid Xid, stat uint32, n uint64) {
+	buf := newBuffer(internal.SizeofMsgStat)
+	msg := (*internal.MsgStat)(buf.pointer())
+	msg.Header.Set(kind)
+	msg.Xid = uint32(xid)
+	msg.Index = stat
+	msg.Count = n
+	queue(buf)
+}
+
+func signaled() bool {
+	select {
+	case sig := <-sigch:
+		if sig != syscall.SIGKILL {
+			sigErr = &SigErr{sig}
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+func tx(buf buffer, timeout time.Duration) error {
+	var oob []byte
+	var dl time.Time
+	defer buf.pool()
+	if sock == nil {
+		return io.EOF
+	}
+	if timeout != time.Duration(0) {
+		dl = time.Now().Add(timeout)
+	}
+	err := sock.SetWriteDeadline(dl)
+	if err != nil {
+		return err
+	}
+	_, _, err = sock.WriteMsgUnix(buf.bytes(), oob, nil)
+	return err
 }
 
 func isEAGAIN(err error) bool {
@@ -245,71 +489,18 @@ func isTimeout(err error) bool {
 	return false
 }
 
-func gorx() {
-	const minrxto = 10 * time.Millisecond
-	const maxrxto = 320 * time.Millisecond
-	rxto := minrxto
-	rxbuf := Pool.Get(PageSize)
-	defer Pool.Put(rxbuf)
-	rxoob := Pool.Get(PageSize)
-	defer Pool.Put(rxoob)
-	defer close(sb.rxch)
-	for sb.sock != nil {
-		err := sb.sock.SetReadDeadline(time.Now().Add(rxto))
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "xeth set rx deadline", err)
-			break
-		}
-		n, noob, flags, addr, err :=
-			sb.sock.ReadMsgUnix(rxbuf, rxoob)
-		_ = noob
-		_ = flags
-		_ = addr
-		if n == 0 || isTimeout(err) {
-			if rxto < maxrxto {
-				rxto *= 2
-			}
-		} else if err == nil {
-			rxto = minrxto
-			kind := KindOf(rxbuf[:n])
-			if err = kind.validate(rxbuf[:n]); err != nil {
-				fmt.Fprintln(os.Stderr, "xeth rx", err)
-				break
-			}
-			kind.update(rxbuf[:n])
-			msg := Pool.Get(n)
-			copy(msg, rxbuf[:n])
-			sb.rxch <- msg
-		} else {
-			e, ok := err.(*os.SyscallError)
-			if !ok || e.Err.Error() != "EOF" {
-				fmt.Fprintln(os.Stderr, "xeth rx", err)
-			}
-			break
-		}
-	}
+func (count *Counter) Count() uint64 {
+	return atomic.LoadUint64((*uint64)(count))
 }
 
-func gotx() {
-	for msg := range sb.txch {
-		tx(msg, 10*time.Millisecond)
-		Pool.Put(msg)
-	}
+func (count *Counter) Reset() {
+	atomic.StoreUint64((*uint64)(count), 0)
 }
 
-func tx(buf []byte, timeout time.Duration) error {
-	var oob []byte
-	var dl time.Time
-	if sb.sock == nil {
-		return io.EOF
-	}
-	if timeout != time.Duration(0) {
-		dl = time.Now().Add(timeout)
-	}
-	err := sb.sock.SetWriteDeadline(dl)
-	if err != nil {
-		return err
-	}
-	_, _, err = sb.sock.WriteMsgUnix(buf, oob, nil)
-	return err
+func (count *Counter) inc() {
+	atomic.AddUint64((*uint64)(count), 1)
+}
+
+func (sig *SigErr) Error() string {
+	return sig.String()
 }

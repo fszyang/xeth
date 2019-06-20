@@ -1,68 +1,135 @@
-/* Copyright(c) 2018 Platina Systems, Inc.
- *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
- *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * The full GNU General Public License is included in this distribution in
- * the file called "COPYING".
- *
- * Contact Information:
- * sw@platina.com
- * Platina Systems, 3180 Del La Cruz Blvd, Santa Clara, CA 95054
- */
+// Copyright © 2018-2019 Platina Systems, Inc. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 
 package xeth
 
 import (
-	"fmt"
 	"net"
+	"sync"
+
+	"github.com/platinasystems/xeth/internal"
 )
 
-type IfIndex int32
-type IfLinkIndex int32
+type DevKind uint8
+type NetNs uint64
 
 type IfInfo struct {
-	Name string
-	Xid
-	DevKind
-	IfIndex
-	IfLinkIndex
-	Netns
-	IfInfoReason
+	Name    string
+	IfIndex int32
+	NetNs
 	net.Flags
+	DevKind
 	net.HardwareAddr
 }
 
-func (ifinfo *IfInfo) String() string { return fmt.Sprint(ifinfo) }
+type DevNew Xid
+type DevDel Xid
+type DevUp Xid
+type DevDown Xid
+type DevDump Xid
+type DevUnreg Xid
+type DevReg struct {
+	Xid
+	NetNs
+}
 
-func (ifinfo *IfInfo) Format(f fmt.State, c rune) {
-	fmt.Fprint(f, ifinfo.IfIndex, ": ", ifinfo.Name)
-	if ifinfo.IfLinkIndex > 0 {
-		links := Matching(ifinfo.IfLinkIndex)
-		if len(links) == 1 {
-			fmt.Fprint(f, "@", links[0].IfInfo.Name)
-		} else {
-			fmt.Fprint(f, "@", ifinfo.IfLinkIndex)
+var (
+	ifinfos sync.Map
+
+	poolIfInfo = sync.Pool{
+		New: func() interface{} {
+			return &IfInfo{
+				HardwareAddr: make([]byte,
+					internal.SizeofEthAddr,
+					internal.SizeofEthAddr),
+			}
+		},
+	}
+)
+
+func (ifinfo *IfInfo) Pool() {
+	poolIfInfo.Put(ifinfo)
+}
+
+func (xid Xid) IfInfo() (ifinfo *IfInfo) {
+	if v, ok := ifinfos.Load(xid); ok {
+		ifinfo = v.(*IfInfo)
+	}
+	return
+}
+
+func (xid Xid) deleteIfInfo() {
+	if ifinfo := xid.IfInfo(); ifinfo != nil {
+		poolIfInfo.Put(ifinfo)
+	}
+	ifinfos.Delete(xid)
+}
+
+func (xid Xid) del() DevDel {
+	xid.delFromXids()
+	xid.deleteIfInfo()
+	xid.deleteIPNets()
+	xid.deleteUppers()
+	xid.deleteLowers()
+	xid.deleteEthtoolFlags()
+	xid.deleteEthtoolSettings()
+	xid.deleteSupportedLinkModes()
+	xid.deleteAttrs()
+	return DevDel(xid)
+}
+
+func (xid Xid) ifinfo(msg *internal.MsgIfInfo) (note interface{}) {
+	ifinfo := xid.IfInfo()
+	if ifinfo == nil {
+		ifinfo = poolIfInfo.Get().(*IfInfo)
+		xid.addToXids()
+		note = DevNew(xid)
+	} else {
+		note = DevDump(xid)
+	}
+	ifinfo.Name = ""
+	for i, c := range msg.Ifname[:] {
+		if c == 0 {
+			ifinfo.Name = string(msg.Ifname[:i])
 		}
 	}
-	fmt.Fprint(f, ": xid ", ifinfo.Xid)
-	if ifinfo.Flags != 0 {
-		fmt.Fprint(f, " <", ifinfo.Flags, ">")
+	if len(ifinfo.Name) == 0 {
+		ifinfo.Name = string(msg.Ifname[:])
 	}
-	fmt.Fprint(f, " reason ", ifinfo.IfInfoReason)
-	if ifinfo.Netns != DefaultNetns {
-		fmt.Fprint(f, " netns ", ifinfo.Netns)
+	ifinfo.IfIndex = msg.Ifindex
+	ifinfo.NetNs = NetNs(msg.Net)
+	ifinfo.Flags = net.Flags(msg.Flags)
+	ifinfo.DevKind = DevKind(msg.Kind)
+	copy(ifinfo.HardwareAddr, msg.Addr[:])
+	ifinfos.Store(xid, ifinfo)
+	return note
+}
+
+func (xid Xid) up() DevUp {
+	if ifinfo := xid.IfInfo(); ifinfo != nil {
+		ifinfo.Flags |= net.FlagUp
 	}
-	fmt.Fprint(f, "\n    link/", ifinfo.DevKind)
-	fmt.Fprint(f, " ", ifinfo.HardwareAddr)
+	return DevUp(xid)
+}
+
+func (xid Xid) down() DevDown {
+	if ifinfo := xid.IfInfo(); ifinfo != nil {
+		ifinfo.Flags &^= net.FlagUp
+	}
+	return DevDown(xid)
+}
+
+func (xid Xid) reg(netns NetNs) *DevReg {
+	if ifinfo := xid.IfInfo(); ifinfo != nil {
+		ifinfo.NetNs = netns
+	}
+	return &DevReg{xid, netns}
+}
+
+func (xid Xid) unreg() DevUnreg {
+	if ifinfo := xid.IfInfo(); ifinfo != nil {
+		ifinfo.NetNs = 1
+	}
+	return DevUnreg(xid)
 }

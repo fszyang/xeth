@@ -6,97 +6,218 @@ package xeth
 #include <stdint.h>
 #include <linux/types.h>
 #include <errno.h>
-#include "xeth.h"
+#include "internal/xeth.h"
 */
 import "C"
 
 const (
 	VlanVidMask = C.XETH_VLAN_VID_MASK
 	VlanNVid    = C.XETH_VLAN_N_VID
+)
 
-	MsgVersion = C.XETH_MSG_VERSION
-
-	IflaUnspec = C.XETH_IFLA_UNSPEC
-	IflaXid    = C.XETH_IFLA_XID
-	IflaVid    = C.XETH_IFLA_VID
-	IflaKind   = C.XETH_IFLA_KIND
-
+const (
 	DevKindUnspec = C.XETH_DEV_KIND_UNSPEC
 	DevKindPort   = C.XETH_DEV_KIND_PORT
 	DevKindVlan   = C.XETH_DEV_KIND_VLAN
 	DevKindBridge = C.XETH_DEV_KIND_BRIDGE
 	DevKindLag    = C.XETH_DEV_KIND_LAG
-
-	MsgKindBreak           = C.XETH_MSG_KIND_BREAK
-	MsgKindLinkStat        = C.XETH_MSG_KIND_LINK_STAT
-	MsgKindEthtoolStat     = C.XETH_MSG_KIND_ETHTOOL_STAT
-	MsgKindEthtoolFlags    = C.XETH_MSG_KIND_ETHTOOL_FLAGS
-	MsgKindEthtoolSettings = C.XETH_MSG_KIND_ETHTOOL_SETTINGS
-	MsgKindDumpIfInfo      = C.XETH_MSG_KIND_DUMP_IFINFO
-	MsgKindCarrier         = C.XETH_MSG_KIND_CARRIER
-	MsgKindSpeed           = C.XETH_MSG_KIND_SPEED
-	MsgKindIfInfo          = C.XETH_MSG_KIND_IFINFO
-	MsgKindIfa             = C.XETH_MSG_KIND_IFA
-	MsgKindDumpFibInfo     = C.XETH_MSG_KIND_DUMP_FIBINFO
-	MsgKindFibEntry        = C.XETH_MSG_KIND_FIBENTRY
-	MsgKindIfDel           = C.XETH_MSG_KIND_IFDEL
-	MsgKindNeighUpdate     = C.XETH_MSG_KIND_NEIGH_UPDATE
-	MsgKindIfVid           = C.XETH_MSG_KIND_IFVID
-	MsgKindChangeUpperXid  = C.XETH_MSG_KIND_CHANGE_UPPER_XID
-
-	CarrierOff = C.XETH_CARRIER_OFF
-	CarrierOn  = C.XETH_CARRIER_ON
-
-	IfInfoReasonNew   = C.XETH_IFINFO_REASON_NEW
-	IfInfoReasonDel   = C.XETH_IFINFO_REASON_DEL
-	IfInfoReasonUp    = C.XETH_IFINFO_REASON_UP
-	IfInfoReasonDown  = C.XETH_IFINFO_REASON_DOWN
-	IfInfoReasonDump  = C.XETH_IFINFO_REASON_DUMP
-	IfInfoReasonReg   = C.XETH_IFINFO_REASON_REG
-	IfInfoReasonUnreg = C.XETH_IFINFO_REASON_UNREG
-
-	SizeofIfName             = C.XETH_IFNAMSIZ
-	SizeofEthAddr            = C.XETH_ALEN
-	SizeofJumboFrame         = C.XETH_SIZEOF_JUMBO_FRAME
-	SizeofMsg                = C.sizeof_struct_xeth_msg
-	SizeofMsgBreak           = C.sizeof_struct_xeth_msg_break
-	SizeofMsgCarrier         = C.sizeof_struct_xeth_msg_carrier
-	SizeofMsgChangeUpperXid  = C.sizeof_struct_xeth_msg_change_upper_xid
-	SizeofMsgDumpFibInfo     = C.sizeof_struct_xeth_msg_dump_fibinfo
-	SizeofMsgDumpIfInfo      = C.sizeof_struct_xeth_msg_dump_ifinfo
-	SizeofMsgEthtoolFlags    = C.sizeof_struct_xeth_msg_ethtool_flags
-	SizeofMsgEthtoolSettings = C.sizeof_struct_xeth_msg_ethtool_settings
-	SizeofMsgIfa             = C.sizeof_struct_xeth_msg_ifa
-	SizeofMsgIfInfo          = C.sizeof_struct_xeth_msg_ifinfo
-	SizeofNextHop            = C.sizeof_struct_xeth_next_hop
-	SizeofMsgFibEntry        = C.sizeof_struct_xeth_msg_fibentry
-	SizeofMsgNeighUpdate     = C.sizeof_struct_xeth_msg_neigh_update
-	SizeofMsgSpeed           = C.sizeof_struct_xeth_msg_speed
-	SizeofMsgStat            = C.sizeof_struct_xeth_msg_stat
 )
 
-type MsgHeader C.struct_xeth_msg_header
+const (
+	SHUT_RD = iota
+	SHUT_WR
+	SHUT_RDWR
+)
 
-type MsgBreak C.struct_xeth_msg_break
+const (
+	FIB_EVENT_ENTRY_REPLACE = iota
+	FIB_EVENT_ENTRY_APPEND
+	FIB_EVENT_ENTRY_ADD
+	FIB_EVENT_ENTRY_DEL
+	FIB_EVENT_RULE_ADD
+	FIB_EVENT_RULE_DEL
+	FIB_EVENT_NH_ADD
+	FIB_EVENT_NH_DEL
+)
 
-type MsgCarrier C.struct_xeth_msg_carrier
+const (
+	RTN_UNSPEC = iota
+	RTN_UNICAST
+	RTN_LOCAL
+	RTN_BROADCAST
+	RTN_ANYCAST
+	RTN_MULTICAST
+	RTN_BLACKHOLE
+	RTN_UNREACHABLE
+	RTN_PROHIBIT
+	RTN_THROW
+	RTN_NAT
+	RTN_XRESOLVE
+	__RTN_MAX
+)
 
-type MsgChangeUpperXid C.struct_xeth_msg_change_upper_xid
+const RTN_MAX = __RTN_MAX - 1
 
-type MsgEthtoolFlags C.struct_xeth_msg_ethtool_flags
+const (
+	RTNH_F_DEAD       = 1  // Nexthop is dead (used by multipath)
+	RTNH_F_PERVASIVE  = 2  // Do recursive gateway lookup
+	RTNH_F_ONLINK     = 4  // Gateway is forced on link
+	RTNH_F_OFFLOAD    = 8  // offloaded route
+	RTNH_F_LINKDOWN   = 16 // carrier-down on nexthop
+	RTNH_F_UNRESOLVED = 32 // The entry is unresolved (ipmr)
+)
 
-type MsgEthtoolSettings C.struct_xeth_msg_ethtool_settings
+const (
+	RT_SCOPE_UNIVERSE = 0
+	RT_SCOPE_SITE     = 200
+	RT_SCOPE_LINK     = 253
+	RT_SCOPE_HOST     = 254
+	RT_SCOPE_NOWHERE  = 255
+)
 
-type NextHop C.struct_xeth_next_hop
+const (
+	RT_TABLE_UNSPEC = 0
+	// User defined values
+	RT_TABLE_COMPAT  = 252
+	RT_TABLE_DEFAULT = 253
+	RT_TABLE_MAIN    = 254
+	RT_TABLE_LOCAL   = 255
+	RT_TABLE_MAX     = 0xFFFFFFFF
+)
 
-type MsgFibentry C.struct_xeth_msg_fibentry
+const (
+	LinkStatRxPackets = iota
+	LinkStatTxPackets
+	LinkStatRxBytes
+	LinkStatTxBytes
+	LinkStatRxErrors
+	LinkStatTxErrors
+	LinkStatRxDropped
+	LinkStatTxDropped
+	LinkStatMulticast
+	LinkStatCollisions
+	LinkStatRxLengthErrors
+	LinkStatRxOverErrors
+	LinkStatRxCrcErrors
+	LinkStatRxFrameErrors
+	LinkStatRxFifoErrors
+	LinkStatRxMissedErrors
+	LinkStatTxAbortedErrors
+	LinkStatTxCarrierErrors
+	LinkStatTxFifoErrors
+	LinkStatTxHeartbeatErrors
+	LinkStatTxWindowErrors
+	LinkStatRxCompressed
+	LinkStatTxCompressed
+	LinkStatRxNohandler
+)
 
-type MsgIfa C.struct_xeth_msg_ifa
+var IndexofLinkStat = map[string]int{
+	"rx-packets":          LinkStatRxPackets,
+	"tx-packets":          LinkStatTxPackets,
+	"rx-bytes":            LinkStatRxBytes,
+	"tx-bytes":            LinkStatTxBytes,
+	"rx-errors":           LinkStatRxErrors,
+	"tx-errors":           LinkStatTxErrors,
+	"rx-dropped":          LinkStatRxDropped,
+	"tx-dropped":          LinkStatTxDropped,
+	"multicast":           LinkStatMulticast,
+	"collisions":          LinkStatCollisions,
+	"rx-length-errors":    LinkStatRxLengthErrors,
+	"rx-over-errors":      LinkStatRxOverErrors,
+	"rx-crc-errors":       LinkStatRxCrcErrors,
+	"rx-frame-errors":     LinkStatRxFrameErrors,
+	"rx-fifo-errors":      LinkStatRxFifoErrors,
+	"rx-missed-errors":    LinkStatRxMissedErrors,
+	"tx-aborted-errors":   LinkStatTxAbortedErrors,
+	"tx-carrier-errors":   LinkStatTxCarrierErrors,
+	"tx-fifo-errors":      LinkStatTxFifoErrors,
+	"tx-heartbeat-errors": LinkStatTxHeartbeatErrors,
+	"tx-window-errors":    LinkStatTxWindowErrors,
+	"rx-compressed":       LinkStatRxCompressed,
+	"tx-compressed":       LinkStatTxCompressed,
+	"rx-nohandler":        LinkStatRxNohandler,
+}
 
-type MsgIfinfo C.struct_xeth_msg_ifinfo
+const (
+	AUTONEG_DISABLE = 0
+	AUTONEG_ENABLE  = 1
+	AUTONEG_UNKNOWN = 0xff
+)
 
-type MsgNeighUpdate C.struct_xeth_msg_neigh_update
+const (
+	DUPLEX_HALF    = 0
+	DUPLEX_FULL    = 1
+	DUPLEX_UNKNOWN = 0xff
+)
 
-type MsgSpeed C.struct_xeth_msg_speed
+const (
+	PORT_TP    = 0
+	PORT_AUI   = 1
+	PORT_MII   = 2
+	PORT_FIBRE = 3
+	PORT_BNC   = 4
+	PORT_DA    = 5
+	PORT_NONE  = 0xef
+	PORT_OTHER = 0xff
+)
 
-type MsgStat C.struct_xeth_msg_stat
+const (
+	ETH_TP_MDI_INVALID = 0 // status: unknown; control: unsupported
+	ETH_TP_MDI         = 1 // status: MDI;     control: force MDI
+	ETH_TP_MDI_X       = 2 // status: MDI-X;   control: force MDI-X
+	ETH_TP_MDI_AUTO    = 3 //                  control: auto-select
+)
+
+const (
+	ETHTOOL_LINK_MODE_10baseT_Half = iota
+	ETHTOOL_LINK_MODE_10baseT_Full
+	ETHTOOL_LINK_MODE_100baseT_Half
+	ETHTOOL_LINK_MODE_100baseT_Full
+	ETHTOOL_LINK_MODE_1000baseT_Half
+	ETHTOOL_LINK_MODE_1000baseT_Full
+	ETHTOOL_LINK_MODE_Autoneg
+	ETHTOOL_LINK_MODE_TP
+	ETHTOOL_LINK_MODE_AUI
+	ETHTOOL_LINK_MODE_MII
+	ETHTOOL_LINK_MODE_FIBRE
+	ETHTOOL_LINK_MODE_BNC
+	ETHTOOL_LINK_MODE_10000baseT_Full
+	ETHTOOL_LINK_MODE_Pause
+	ETHTOOL_LINK_MODE_Asym_Pause
+	ETHTOOL_LINK_MODE_2500baseX_Full
+	ETHTOOL_LINK_MODE_Backplane
+	ETHTOOL_LINK_MODE_1000baseKX_Full
+	ETHTOOL_LINK_MODE_10000baseKX4_Full
+	ETHTOOL_LINK_MODE_10000baseKR_Full
+	ETHTOOL_LINK_MODE_10000baseR_FEC
+	ETHTOOL_LINK_MODE_20000baseMLD2_Full
+	ETHTOOL_LINK_MODE_20000baseKR2_Full
+	ETHTOOL_LINK_MODE_40000baseKR4_Full
+	ETHTOOL_LINK_MODE_40000baseCR4_Full
+	ETHTOOL_LINK_MODE_40000baseSR4_Full
+	ETHTOOL_LINK_MODE_40000baseLR4_Full
+	ETHTOOL_LINK_MODE_56000baseKR4_Full
+	ETHTOOL_LINK_MODE_56000baseCR4_Full
+	ETHTOOL_LINK_MODE_56000baseSR4_Full
+	ETHTOOL_LINK_MODE_56000baseLR4_Full
+	ETHTOOL_LINK_MODE_25000baseCR_Full
+	ETHTOOL_LINK_MODE_25000baseKR_Full
+	ETHTOOL_LINK_MODE_25000baseSR_Full
+	ETHTOOL_LINK_MODE_50000baseCR2_Full
+	ETHTOOL_LINK_MODE_50000baseKR2_Full
+	ETHTOOL_LINK_MODE_100000baseKR4_Full
+	ETHTOOL_LINK_MODE_100000baseSR4_Full
+	ETHTOOL_LINK_MODE_100000baseCR4_Full
+	ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full
+	ETHTOOL_LINK_MODE_50000baseSR2_Full
+	ETHTOOL_LINK_MODE_1000baseX_Full
+	ETHTOOL_LINK_MODE_10000baseCR_Full
+	ETHTOOL_LINK_MODE_10000baseSR_Full
+	ETHTOOL_LINK_MODE_10000baseLR_Full
+	ETHTOOL_LINK_MODE_10000baseLRM_Full
+	ETHTOOL_LINK_MODE_10000baseER_Full
+	ETHTOOL_LINK_MODE_2500baseT_Full
+	ETHTOOL_LINK_MODE_5000baseT_Full
+	ETHTOOL_LINK_MODE_NBITS
+)

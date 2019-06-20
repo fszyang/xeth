@@ -67,16 +67,19 @@ enum xeth_msg_kind {
 	XETH_MSG_KIND_ETHTOOL_STAT,
 	XETH_MSG_KIND_ETHTOOL_FLAGS,
 	XETH_MSG_KIND_ETHTOOL_SETTINGS,
+	XETH_MSG_KIND_ETHTOOL_LINK_MODES_SUPPORTED,
+	XETH_MSG_KIND_ETHTOOL_LINK_MODES_ADVERTISING,
+	XETH_MSG_KIND_ETHTOOL_LINK_MODES_LP_ADVERTISING,
 	XETH_MSG_KIND_DUMP_IFINFO,
 	XETH_MSG_KIND_CARRIER,
 	XETH_MSG_KIND_SPEED,
 	XETH_MSG_KIND_IFINFO,
 	XETH_MSG_KIND_IFA,
+	XETH_MSG_KIND_IFA6,
 	XETH_MSG_KIND_DUMP_FIBINFO,
 	XETH_MSG_KIND_FIBENTRY,
-	XETH_MSG_KIND_IFDEL,
+	XETH_MSG_KIND_FIB6ENTRY,
 	XETH_MSG_KIND_NEIGH_UPDATE,
-	XETH_MSG_KIND_IFVID,
 	XETH_MSG_KIND_CHANGE_UPPER_XID,
 };
 
@@ -151,10 +154,16 @@ struct xeth_msg_ethtool_settings {
 	uint8_t mdio_support;
 	uint8_t eth_tp_mdix;
 	uint8_t eth_tp_mdix_ctrl;
-	uint8_t link_mode_masks_nwords;
-	uint32_t link_modes_supported[2];
-	uint32_t link_modes_advertising[2];
-	uint32_t link_modes_lp_advertising[2];
+	uint8_t pad;
+};
+
+
+struct xeth_msg_ethtool_link_modes {
+	struct xeth_msg_header header;
+	uint32_t xid;
+	uint8_t nbytes;
+	uint8_t pad[3];
+	uint8_t modes[];
 };
 
 struct xeth_next_hop {
@@ -179,12 +188,42 @@ struct xeth_msg_fibentry {
 	struct xeth_next_hop nh[];
 };
 
+struct xeth_next_hop6 {
+	int32_t ifindex;
+	int32_t weight;
+	uint32_t flags;
+	uint32_t reserved;
+	uint8_t gw[16];
+};
+
+struct xeth_msg_fib6entry {
+	struct xeth_msg_header header;
+	uint64_t net;
+	uint8_t address[16];
+	uint8_t length;
+	uint8_t event;
+	uint8_t nsiblings;
+	uint8_t type;
+	uint32_t table;
+	struct xeth_next_hop6 nh;
+	struct xeth_next_hop6 siblings[];
+};
+
 struct xeth_msg_ifa {
 	struct xeth_msg_header header;
 	uint32_t xid;
 	uint32_t event;
 	__be32 address;
 	__be32 mask;
+};
+
+struct xeth_msg_ifa6 {
+	struct xeth_msg_header header;
+	uint32_t xid;
+	uint32_t event;
+	uint8_t address[16];
+	uint8_t length;
+	uint8_t pad[7];
 };
 
 struct xeth_msg_ifinfo {
