@@ -4,32 +4,21 @@
 
 package xeth
 
-import (
-	"sync"
-)
-
 type EthtoolFlagBits uint32
+
 type DevEthtoolFlags struct {
 	Xid
 	EthtoolFlagBits
 }
 
-var ethtoolFlags sync.Map
-
-func (xid Xid) EthtoolFlags() (bits EthtoolFlagBits) {
-	if v, ok := ethtoolFlags.Load(xid); ok {
-		bits = v.(EthtoolFlagBits)
-	}
-	return
-}
-
-func (xid Xid) deleteEthtoolFlags() {
-	ethtoolFlags.Delete(xid)
-}
-
-func (xid Xid) ethtoolFlags(flags uint32) *DevEthtoolFlags {
+func (xid Xid) RxEthtoolFlags(flags uint32) *DevEthtoolFlags {
+	m := xid.Map()
 	bits := EthtoolFlagBits(flags)
-	ethtoolFlags.Store(xid, bits)
+	if flags == 0 {
+		m.Delete(EthtoolFlagsAttr)
+	} else {
+		m.Store(EthtoolFlagsAttr, bits)
+	}
 	return &DevEthtoolFlags{xid, bits}
 }
 

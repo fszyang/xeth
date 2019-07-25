@@ -20,39 +20,20 @@ type DevDelIPNet struct {
 	Prefix string
 }
 
-var (
-	ipnets sync.Map
-
-	poolIPNet = sync.Pool{
-		New: func() interface{} {
-			return &net.IPNet{
-				IP:   make([]byte, net.IPv6len, net.IPv6len),
-				Mask: make([]byte, net.IPv6len, net.IPv6len),
-			}
-		},
-	}
-)
-
-func (xid Xid) IPNets() (l []*net.IPNet) {
-	if v, ok := ipnets.Load(xid); ok {
-		l = v.([]*net.IPNet)
-	}
-	return
+var poolIPNet = sync.Pool{
+	New: func() interface{} {
+		return &net.IPNet{
+			IP:   make([]byte, net.IPv6len, net.IPv6len),
+			Mask: make([]byte, net.IPv6len, net.IPv6len),
+		}
+	},
 }
 
-func (xid Xid) deleteIPNets() {
-	for _, entry := range xid.IPNets() {
-		entry.IP = entry.IP[:cap(entry.IP)]
-		entry.Mask = entry.Mask[:cap(entry.Mask)]
-		poolIPNet.Put(entry)
-	}
-	ipnets.Delete(xid)
-}
-
-func (xid Xid) addIP(addr, mask uint32) *DevAddIPNet {
+func (xid Xid) RxIP4Add(addr, mask uint32) *DevAddIPNet {
+	attrs := xid.Attrs()
 	ip := net.IP(make([]byte, net.IPv4len, net.IPv4len))
 	*(*uint32)(unsafe.Pointer(&ip[0])) = addr
-	l := xid.IPNets()
+	l := attrs.IPNets()
 	for _, entry := range l {
 		if ip.Equal(entry.IP) {
 			return &DevAddIPNet{xid, entry}
@@ -63,20 +44,21 @@ func (xid Xid) addIP(addr, mask uint32) *DevAddIPNet {
 	*(*uint32)(unsafe.Pointer(&clone.Mask[0])) = mask
 	clone.IP = clone.IP[:net.IPv4len]
 	clone.Mask = clone.Mask[:net.IPv4len]
-	ipnets.Store(xid, append(l, clone))
+	attrs.IPNets(append(l, clone))
 	return &DevAddIPNet{xid, clone}
 }
 
-func (xid Xid) delIP(addr, mask uint32) *DevDelIPNet {
+func (xid Xid) RxIP4Del(addr, mask uint32) *DevDelIPNet {
+	attrs := xid.Attrs()
 	ip := net.IP(make([]byte, net.IPv4len, net.IPv4len))
 	*(*uint32)(unsafe.Pointer(&ip[0])) = addr
-	l := xid.IPNets()
+	l := attrs.IPNets()
 	for i, entry := range l {
 		if ip.Equal(entry.IP) {
 			prefix := entry.String()
 			n := len(l) - 1
 			copy(l[i:], l[i+1:])
-			ipnets.Store(xid, l[:n])
+			attrs.IPNets(l[:n])
 			entry.IP = entry.IP[:cap(entry.IP)]
 			entry.Mask = entry.Mask[:cap(entry.Mask)]
 			poolIPNet.Put(entry)
@@ -86,9 +68,10 @@ func (xid Xid) delIP(addr, mask uint32) *DevDelIPNet {
 	return nil
 }
 
-func (xid Xid) addIP6(addr []byte, len int) *DevAddIPNet {
+func (xid Xid) RxIP6Add(addr []byte, len int) *DevAddIPNet {
+	attrs := xid.Attrs()
 	ip := net.IP(addr)
-	l := xid.IPNets()
+	l := attrs.IPNets()
 	for _, entry := range l {
 		if ip.Equal(entry.IP) {
 			return &DevAddIPNet{xid, entry}
@@ -97,19 +80,20 @@ func (xid Xid) addIP6(addr []byte, len int) *DevAddIPNet {
 	clone := poolIPNet.Get().(*net.IPNet)
 	copy(clone.IP, ip)
 	copy(clone.Mask, net.CIDRMask(len, net.IPv6len*8))
-	ipnets.Store(xid, append(l, clone))
+	attrs.IPNets(append(l, clone))
 	return &DevAddIPNet{xid, clone}
 }
 
-func (xid Xid) delIP6(addr []byte) *DevDelIPNet {
+func (xid Xid) RxIP6Del(addr []byte) *DevDelIPNet {
+	attrs := xid.Attrs()
 	ip := net.IP(addr)
-	l := xid.IPNets()
+	l := attrs.IPNets()
 	for i, entry := range l {
 		if ip.Equal(entry.IP) {
 			prefix := entry.String()
 			n := len(l) - 1
 			copy(l[i:], l[i+1:])
-			ipnets.Store(xid, l[:n])
+			attrs.IPNets(l[:n])
 			entry.IP = entry.IP[:cap(entry.IP)]
 			entry.Mask = entry.Mask[:cap(entry.Mask)]
 			poolIPNet.Put(entry)

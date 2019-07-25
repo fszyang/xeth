@@ -7,7 +7,10 @@ package xeth
 import (
 	"flag"
 	"fmt"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"testing"
 )
 
@@ -15,30 +18,40 @@ var Continue = flag.Bool("test.continue", false,
 	"continue after ifinfo and fib dumps unil SIGINT")
 
 func Test(t *testing.T) {
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	stopch := make(chan struct{})
+	defer close(stopch)
+
 	flag.Parse()
 
-	err := Init()
+	task, err := Start(&wg, stopch)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	DumpIfInfo()
-	for buf := range RxCh {
+	task.DumpIfInfo()
+	for buf := range task.RxCh {
 		if Class(buf) == ClassBreak {
 			break
 		}
-		msg := Parse(buf)
-		fmt.Println(msg)
-		Pool(msg)
+		// Load the attribute cache through Parse
+		Pool(Parse(buf))
 	}
 
 	Range(func(xid Xid) bool {
-		fmt.Println("xid", uint32(xid), xid)
+		attrs := xid.Attrs()
+		fmt.Print(attrs.IfInfoName(),
+			", xid ", uint32(xid),
+			", ifindex ", attrs.IfInfoIfIndex(),
+			", netns ", attrs.IfInfoNetNs(),
+			", ipnets ", attrs.IPNets(),
+			"\n")
 		return true
 	})
 
-	DumpFib()
-	for buf := range RxCh {
+	task.DumpFib()
+	for buf := range task.RxCh {
 		if Class(buf) == ClassBreak {
 			break
 		}
@@ -48,36 +61,22 @@ func Test(t *testing.T) {
 	}
 
 	if *Continue {
-		var wg sync.WaitGroup
-		wg.Add(1)
+		sigch := make(chan os.Signal, 1)
+		signal.Notify(sigch,
+			syscall.SIGTERM,
+			syscall.SIGINT,
+			syscall.SIGHUP,
+			syscall.SIGQUIT)
 		go func() {
+			wg.Add(1)
 			defer wg.Done()
-			for buf := range RxCh {
+			for buf := range task.RxCh {
 				msg := Parse(buf)
 				fmt.Println(msg)
 				Pool(msg)
 			}
 		}()
-		wg.Wait()
-	}
-
-	if err := Close(); err != nil {
-		if IsSignal(err) {
-			t.Log(err)
-		} else {
-			t.Error(err)
-		}
-	}
-	if val := Cloned.Count(); val != 0 {
-		t.Log("cloned", val)
-	}
-	if val := Parsed.Count(); val != 0 {
-		t.Log("parsed", val)
-	}
-	if val := Dropped.Count(); val != 0 {
-		t.Log("dropped", val)
-	}
-	if val := Sent.Count(); val != 0 {
-		t.Log("sent", val)
+		<-sigch
+		signal.Stop(sigch)
 	}
 }

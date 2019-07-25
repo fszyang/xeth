@@ -4,81 +4,43 @@
 
 package xeth
 
-import "sync"
-
 type EthtoolLinkModeBits []uint8
 
-type DevSupportedLinkModes Xid
-type DevAdvertisingLinkModes Xid
-type DevLPAdvertisingLinkModes Xid
+type DevLinkModesSupported Xid
+type DevLinkModesAdvertising Xid
+type DevLinkModesLPAdvertising Xid
 
-var (
-	supportedLinkModes     sync.Map
-	advertisingLinkModes   sync.Map
-	lpadvertisingLinkModes sync.Map
-)
-
-func (xid Xid) SupportedLinkModes() (modes EthtoolLinkModeBits) {
-	if v, ok := supportedLinkModes.Load(xid); ok {
-		modes = v.(EthtoolLinkModeBits)
-	}
-	return
-}
-
-func (xid Xid) AdvertisingLinkModes() (modes EthtoolLinkModeBits) {
-	if v, ok := advertisingLinkModes.Load(xid); ok {
-		modes = v.(EthtoolLinkModeBits)
-	}
-	return
-}
-
-func (xid Xid) LPAdvertisingLinkModes() (modes EthtoolLinkModeBits) {
-	if v, ok := lpadvertisingLinkModes.Load(xid); ok {
-		modes = v.(EthtoolLinkModeBits)
-	}
-	return
-}
-
-func (xid Xid) deleteSupportedLinkModes() {
-	supportedLinkModes.Delete(xid)
-}
-
-func (xid Xid) deleteAdvertisingLinkModes() {
-	advertisingLinkModes.Delete(xid)
-}
-
-func (xid Xid) deleteLPAdvertisingLinkModes() {
-	lpadvertisingLinkModes.Delete(xid)
-}
-
-func (xid Xid) supportedLinkModes(modes []uint8) DevSupportedLinkModes {
-	supported := xid.SupportedLinkModes()
+func (xid Xid) RxSupported(modes []uint8) DevLinkModesSupported {
+	attrs := xid.Attrs()
+	supported := attrs.LinkModesSupported()
 	if supported == nil || len(supported) != len(modes) {
 		supported = make(EthtoolLinkModeBits, len(modes))
 	}
 	copy(supported, modes)
-	supportedLinkModes.Store(xid, supported)
-	return DevSupportedLinkModes(xid)
+	attrs.LinkModesSupported(supported)
+	return DevLinkModesSupported(xid)
 }
 
-func (xid Xid) advertisingLinkModes(modes []uint8) DevAdvertisingLinkModes {
-	advertising := xid.AdvertisingLinkModes()
+func (xid Xid) RxAdvertising(modes []uint8) DevLinkModesAdvertising {
+	attrs := xid.Attrs()
+	advertising := attrs.LinkModesAdvertising()
 	if advertising == nil || len(advertising) != len(modes) {
 		advertising = make(EthtoolLinkModeBits, len(modes))
 	}
 	copy(advertising, modes)
-	advertisingLinkModes.Store(xid, advertising)
-	return DevAdvertisingLinkModes(xid)
+	attrs.LinkModesAdvertising(advertising)
+	return DevLinkModesAdvertising(xid)
 }
 
-func (xid Xid) lpadvertisingLinkModes(modes []uint8) DevLPAdvertisingLinkModes {
-	lpadvertising := xid.LPAdvertisingLinkModes()
+func (xid Xid) RxLPAdvertising(modes []uint8) DevLinkModesLPAdvertising {
+	attrs := xid.Attrs()
+	lpadvertising := attrs.LinkModesLPAdvertising()
 	if lpadvertising == nil || len(lpadvertising) != len(modes) {
 		lpadvertising = make(EthtoolLinkModeBits, len(modes))
 	}
 	copy(lpadvertising, modes)
-	lpadvertisingLinkModes.Store(xid, lpadvertising)
-	return DevLPAdvertisingLinkModes(xid)
+	attrs.LinkModesLPAdvertising(lpadvertising)
+	return DevLinkModesLPAdvertising(xid)
 }
 
 func (bits EthtoolLinkModeBits) Test(bit uint) bool {
