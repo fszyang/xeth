@@ -6,18 +6,12 @@
 
 package xeth
 
-import (
-	"fmt"
-	"sync"
-)
+import "fmt"
 
 func (xid Xid) Format(f fmt.State, c rune) {
-	if v, ok := XidAttrMaps.Load(xid); ok {
-		m := v.(*sync.Map)
-		if name, ok := m.Load(IfInfoNameAttr); ok {
-			fmt.Fprint(f, name)
-			return
-		}
+	if xid.Valid() {
+		fmt.Fprint(f, xid.Attrs().IfInfoName())
+		return
 	}
 	if xid > VlanNVid {
 		fmt.Fprintf(f, "(%d, %d)", xid&VlanVidMask, xid/VlanNVid)

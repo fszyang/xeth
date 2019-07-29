@@ -75,8 +75,6 @@ type pooler interface {
 	Pool()
 }
 
-type Xid uint32
-
 type Break struct{}
 
 type Buffer interface{ buffer }

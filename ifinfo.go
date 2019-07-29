@@ -6,7 +6,6 @@ package xeth
 
 import (
 	"net"
-	"sync"
 
 	"github.com/platinasystems/xeth/internal"
 )
@@ -25,14 +24,8 @@ type DevReg struct {
 }
 
 func (xid Xid) RxIfInfo(msg *internal.MsgIfInfo) (note interface{}) {
-	var m *sync.Map
-	if v, ok := XidAttrMaps.Load(xid); ok {
-		m = v.(*sync.Map)
-	} else {
-		m = new(sync.Map)
-		XidAttrMaps.Store(xid, m)
-	}
-	if _, ok := m.Load(IfInfoNameAttr); ok {
+	attrs := xid.attrs()
+	if _, ok := attrs.Map().Load(IfInfoNameXidAttr); ok {
 		note = DevDump(xid)
 	} else {
 		note = DevNew(xid)
@@ -45,15 +38,15 @@ func (xid Xid) RxIfInfo(msg *internal.MsgIfInfo) (note interface{}) {
 				name[i] = byte(c)
 			}
 		}
-		m.Store(IfInfoNameAttr, string(name))
-		m.Store(IfInfoDevKindAttr, DevKind(msg.Kind))
+		attrs.IfInfoName(string(name))
+		attrs.IfInfoDevKind(DevKind(msg.Kind))
 		ha := make(net.HardwareAddr, internal.SizeofEthAddr)
 		copy(ha, msg.Addr[:])
-		m.Store(IfInfoHardwareAddrAttr, ha)
+		attrs.IfInfoHardwareAddr(ha)
 	}
-	m.Store(IfInfoIfIndexAttr, msg.Ifindex)
-	m.Store(IfInfoNetNsAttr, NetNs(msg.Net))
-	m.Store(IfInfoFlagsAttr, net.Flags(msg.Flags))
+	attrs.IfInfoIfIndex(msg.Ifindex)
+	attrs.IfInfoNetNs(NetNs(msg.Net))
+	attrs.IfInfoFlags(net.Flags(msg.Flags))
 	return note
 }
 
@@ -61,7 +54,7 @@ func (xid Xid) RxUp() DevUp {
 	attrs := xid.Attrs()
 	flags := attrs.IfInfoFlags()
 	flags |= net.FlagUp
-	attrs.Map().Store(IfInfoFlagsAttr, flags)
+	attrs.Map().Store(IfInfoFlagsXidAttr, flags)
 	return DevUp(xid)
 }
 
@@ -69,16 +62,29 @@ func (xid Xid) RxDown() DevDown {
 	attrs := xid.Attrs()
 	flags := attrs.IfInfoFlags()
 	flags &^= net.FlagUp
-	attrs.Map().Store(IfInfoFlagsAttr, flags)
+	attrs.Map().Store(IfInfoFlagsXidAttr, flags)
 	return DevDown(xid)
 }
 
 func (xid Xid) RxReg(netns NetNs) *DevReg {
-	xid.Map().Store(IfInfoNetNsAttr, netns)
+	xidattrs := xid.Attrs()
+	ifindex := xidattrs.IfInfoIfIndex()
+	if netns != DefaultNetNs {
+		DefaultNetNs.XidOfIfIndexMap().Delete(ifindex)
+		netns.XidOfIfIndexMap().Store(ifindex, xid)
+		xidattrs.IfInfoNetNs(netns)
+	} else {
+		DefaultNetNs.XidOfIfIndexMap().Store(ifindex, xid)
+	}
 	return &DevReg{xid, netns}
 }
 
 func (xid Xid) RxUnreg() DevUnreg {
-	xid.Map().Store(IfInfoNetNsAttr, DefaultNetNs)
+	xidattrs := xid.Attrs()
+	ifindex := xidattrs.IfInfoIfIndex()
+	oldns := xidattrs.IfInfoNetNs()
+	oldns.XidOfIfIndexMap().Delete(ifindex)
+	DefaultNetNs.XidOfIfIndexMap().Store(ifindex, xid)
+	xidattrs.IfInfoNetNs(DefaultNetNs)
 	return DevUnreg(xid)
 }

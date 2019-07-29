@@ -13,10 +13,10 @@ type DevPort uint8
 type DevEthtoolSettings Xid
 
 func (xid Xid) RxEthtoolSettings(msg *internal.MsgEthtoolSettings) DevEthtoolSettings {
-	m := xid.Map()
-	m.Store(EthtoolSpeedAttr, msg.Speed)
-	m.Store(EthtoolAutoNegAttr, AutoNeg(msg.Autoneg))
-	m.Store(EthtoolDuplexAttr, Duplex(msg.Duplex))
-	m.Store(EthtoolDevPortAttr, DevPort(msg.Port))
+	attrs := xid.Attrs()
+	attrs.EthtoolSpeed(msg.Speed)
+	attrs.EthtoolAutoNeg(AutoNeg(msg.Autoneg))
+	attrs.EthtoolDuplex(Duplex(msg.Duplex))
+	attrs.EthtoolDevPort(DevPort(msg.Port))
 	return DevEthtoolSettings(xid)
 }
