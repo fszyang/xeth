@@ -31,8 +31,8 @@ type FibEntry struct {
 
 type NH struct {
 	net.IP
-	IfIndex int32
-	Weight  int32
+	Xid
+	Weight int32
 	RtnhFlags
 	RtScope
 }
@@ -82,10 +82,14 @@ func fib4(msg *internal.MsgFibEntry) *FibEntry {
 	fe.RtTable = RtTable(msg.Table)
 	fe.Tos = msg.Tos
 	for _, nh := range msg.NextHops() {
+		xid := fe.NetNs.Xid(nh.Ifindex)
+		if xid == 0 {
+			continue
+		}
 		fenh := poolNH.Get().(*NH)
 		*(*uint32)(unsafe.Pointer(&fenh.IP[0])) = nh.Gw
 		fenh.IP = fenh.IP[:net.IPv4len]
-		fenh.IfIndex = nh.Ifindex
+		fenh.Xid = xid
 		fenh.Weight = nh.Weight
 		fenh.RtnhFlags = RtnhFlags(nh.Flags)
 		fenh.RtScope = RtScope(nh.Scope)
@@ -95,23 +99,32 @@ func fib4(msg *internal.MsgFibEntry) *FibEntry {
 }
 
 func fib6(msg *internal.MsgFib6Entry) *FibEntry {
+	netns := NetNs(msg.Net)
 	fe := poolFibEntry.Get().(*FibEntry)
-	fe.NetNs = NetNs(msg.Net)
+	fe.NetNs = netns
 	copy(fe.IPNet.IP, msg.Address[:])
 	fe.IPNet.Mask = net.CIDRMask(int(msg.Length), net.IPv6len*8)
 	fe.FibEntryEvent = FibEntryEvent(msg.Event)
 	fe.Rtn = Rtn(msg.Type)
 	fe.RtTable = RtTable(msg.Table)
+	nhxid := netns.Xid(msg.Nh.Ifindex)
+	if nhxid == 0 {
+		return fe
+	}
 	nh := poolNH.Get().(*NH)
 	copy(nh.IP, msg.Nh.Gw[:])
-	nh.IfIndex = msg.Nh.Ifindex
+	nh.Xid = nhxid
 	nh.Weight = msg.Nh.Weight
 	nh.RtnhFlags = RtnhFlags(msg.Nh.Flags)
 	fe.NHs = append(fe.NHs, nh)
 	for _, sibling := range msg.Siblings() {
+		sibxid := netns.Xid(sibling.Ifindex)
+		if sibxid == 0 {
+			continue
+		}
 		nh = poolNH.Get().(*NH)
 		copy(nh.IP, sibling.Gw[:])
-		nh.IfIndex = sibling.Ifindex
+		nh.Xid = sibxid
 		nh.Weight = sibling.Weight
 		nh.RtnhFlags = RtnhFlags(sibling.Flags)
 		fe.NHs = append(fe.NHs, nh)

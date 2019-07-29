@@ -199,7 +199,7 @@ func (msg *Neighbor) Format(f fmt.State, c rune) {
 func (nh *NH) Format(f fmt.State, c rune) {
 	fmt.Fprint(f, "{")
 	fmt.Fprint(f, nh.IP)
-	fmt.Fprint(f, " ifindex ", nh.IfIndex)
+	fmt.Fprint(f, " ", nh.Xid)
 	fmt.Fprint(f, " weight ", nh.Weight)
 	fmt.Fprint(f, " flags <", nh.RtnhFlags, ">")
 	fmt.Fprint(f, " scope ", nh.RtScope)

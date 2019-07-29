@@ -45,6 +45,7 @@ func Test(t *testing.T) {
 			", xid ", uint32(xid),
 			", ifindex ", attrs.IfInfoIfIndex(),
 			", netns ", attrs.IfInfoNetNs(),
+			", kind ", attrs.IfInfoDevKind(),
 			", ipnets ", attrs.IPNets(),
 			"\n")
 		return true
