@@ -87,17 +87,6 @@ func (ns NetNs) path() string {
 	return nspath
 }
 
-func (ns NetNs) XidOfIfIndexMap() (m *sync.Map) {
-	attrs := ns.attrs()
-	if v, ok := attrs.Map().Load(XidOfIfIndexNetNsAttr); ok {
-		m = v.(*sync.Map)
-	} else {
-		m = new(sync.Map)
-		attrs.Map().Store(XidOfIfIndexNetNsAttr, m)
-	}
-	return
-}
-
 func (attrs *NetNsAttrs) String() string {
 	return attrs.Base()
 }
@@ -115,6 +104,25 @@ func (attrs *NetNsAttrs) Path() (path string) {
 
 func (attrs *NetNsAttrs) Map() *sync.Map {
 	return (*sync.Map)(attrs)
+}
+
+func (ns NetNs) XidOfIfIndexMap() (m *sync.Map) {
+	attrs := ns.attrs()
+	if v, ok := attrs.Map().Load(XidOfIfIndexNetNsAttr); ok {
+		m = v.(*sync.Map)
+	} else {
+		m = new(sync.Map)
+		attrs.Map().Store(XidOfIfIndexNetNsAttr, m)
+	}
+	return
+}
+
+func (ns NetNs) Xid(ifindex int32) (xid Xid) {
+	m := ns.XidOfIfIndexMap()
+	if v, ok := m.Load(ifindex); ok {
+		xid = v.(Xid)
+	}
+	return
 }
 
 // make the xid's attrs map and path if it's not already available

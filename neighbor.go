@@ -14,7 +14,7 @@ import (
 
 type Neighbor struct {
 	NetNs
-	IfIndex int32
+	Xid
 	net.IP
 	net.HardwareAddr
 }
@@ -37,8 +37,9 @@ func (note *Neighbor) Pool() {
 
 func neighbor(msg *internal.MsgNeighUpdate) *Neighbor {
 	note := poolNeighbor.Get().(*Neighbor)
-	note.NetNs = NetNs(msg.Net)
-	note.IfIndex = msg.Ifindex
+	netns := NetNs(msg.Net)
+	note.NetNs = netns
+	note.Xid = netns.Xid(msg.Ifindex)
 	if msg.Family == syscall.AF_INET {
 		copy(note.IP, msg.Dst[:net.IPv4len])
 		note.IP = note.IP[:net.IPv4len]

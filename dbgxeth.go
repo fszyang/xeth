@@ -191,9 +191,9 @@ func (msg *FibEntry) Format(f fmt.State, c rune) {
 func (msg *Neighbor) Format(f fmt.State, c rune) {
 	fmt.Fprint(f, "neighbor")
 	fmt.Fprint(f, " netns ", msg.NetNs)
-	fmt.Fprint(f, " ifindex ", msg.IfIndex)
-	fmt.Fprint(f, " ip ", msg.IP)
-	fmt.Fprint(f, " ha ", msg.HardwareAddr)
+	fmt.Fprint(f, " ", msg.Xid)
+	fmt.Fprint(f, " ", msg.IP)
+	fmt.Fprint(f, " ", msg.HardwareAddr)
 }
 
 func (nh *NH) Format(f fmt.State, c rune) {
