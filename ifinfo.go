@@ -70,11 +70,11 @@ func (xid Xid) RxReg(netns NetNs) *DevReg {
 	xidattrs := xid.Attrs()
 	ifindex := xidattrs.IfInfoIfIndex()
 	if netns != DefaultNetNs {
-		DefaultNetNs.XidOfIfIndexMap().Delete(ifindex)
-		netns.XidOfIfIndexMap().Store(ifindex, xid)
+		DefaultNetNs.Xid(ifindex, 0)
+		netns.Xid(ifindex, xid)
 		xidattrs.IfInfoNetNs(netns)
 	} else {
-		DefaultNetNs.XidOfIfIndexMap().Store(ifindex, xid)
+		DefaultNetNs.Xid(ifindex, xid)
 	}
 	return &DevReg{xid, netns}
 }
@@ -83,8 +83,8 @@ func (xid Xid) RxUnreg() DevUnreg {
 	xidattrs := xid.Attrs()
 	ifindex := xidattrs.IfInfoIfIndex()
 	oldns := xidattrs.IfInfoNetNs()
-	oldns.XidOfIfIndexMap().Delete(ifindex)
-	DefaultNetNs.XidOfIfIndexMap().Store(ifindex, xid)
+	oldns.Xid(ifindex, 0)
+	DefaultNetNs.Xid(ifindex, xid)
 	xidattrs.IfInfoNetNs(DefaultNetNs)
 	return DevUnreg(xid)
 }

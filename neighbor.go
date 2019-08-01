@@ -5,6 +5,7 @@
 package xeth
 
 import (
+	"bytes"
 	"net"
 	"sync"
 	"syscall"
@@ -17,36 +18,53 @@ type Neighbor struct {
 	Xid
 	net.IP
 	net.HardwareAddr
+	Ref
 }
 
 var poolNeighbor = sync.Pool{
 	New: func() interface{} {
 		return &Neighbor{
 			IP: make([]byte, net.IPv6len, net.IPv6len),
-			HardwareAddr: make([]byte,
-				internal.SizeofEthAddr,
-				internal.SizeofEthAddr),
+
+			HardwareAddr: make([]byte, internal.SizeofEthAddr),
 		}
 	},
 }
 
-func (note *Neighbor) Pool() {
-	note.IP = note.IP[:cap(note.IP)]
-	poolNeighbor.Put(note)
+func newNeighbor() *Neighbor {
+	neigh := poolNeighbor.Get().(*Neighbor)
+	neigh.Hold()
+	return neigh
+}
+
+func (neigh *Neighbor) Pool() {
+	if neigh.Release() == 0 {
+		neigh.IP = neigh.IP[:net.IPv6len]
+		poolNeighbor.Put(neigh)
+	}
+}
+
+// to sort a list of neighbors,
+//	sort.Slice(neighbors, func(i, j int) bool {
+//		return neighbors[i].Less(neighbors[j])
+//	})
+func (neighI *Neighbor) Less(neighJ *Neighbor) bool {
+	return bytes.Compare(neighI.IP, neighJ.IP) < 0
 }
 
 func neighbor(msg *internal.MsgNeighUpdate) *Neighbor {
-	note := poolNeighbor.Get().(*Neighbor)
+	neigh := newNeighbor()
 	netns := NetNs(msg.Net)
-	note.NetNs = netns
-	note.Xid = netns.Xid(msg.Ifindex)
+	neigh.NetNs = netns
+	neigh.Xid = netns.Xid(msg.Ifindex)
 	if msg.Family == syscall.AF_INET {
-		copy(note.IP, msg.Dst[:net.IPv4len])
-		note.IP = note.IP[:net.IPv4len]
+		copy(neigh.IP, msg.Dst[:net.IPv4len])
+		neigh.IP = neigh.IP[:net.IPv4len]
 	} else {
-		copy(note.IP, msg.Dst[:int(msg.Len)])
-		note.IP = note.IP[:cap(note.IP)]
+		copy(neigh.IP, msg.Dst[:int(msg.Len)])
+		neigh.IP = neigh.IP[:net.IPv6len]
 	}
-	copy(note.HardwareAddr, msg.Lladdr[:])
-	return note
+	copy(neigh.HardwareAddr, msg.Lladdr[:])
+	netns.neighbor(neigh)
+	return neigh
 }

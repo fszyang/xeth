@@ -5,6 +5,7 @@
 package xeth
 
 import (
+	"bytes"
 	"net"
 	"sync"
 	"unsafe"
@@ -27,6 +28,7 @@ type FibEntry struct {
 	FibEntryEvent
 	Rtn
 	Tos uint8
+	Ref
 }
 
 type NH struct {
@@ -36,6 +38,13 @@ type NH struct {
 	RtnhFlags
 	RtScope
 }
+
+const (
+	CompatRtTable  = RtTable(RT_TABLE_COMPAT)
+	DefaultRtTable = RtTable(RT_TABLE_DEFAULT)
+	MainRtTable    = RtTable(RT_TABLE_MAIN)
+	LocalRtTable   = RtTable(RT_TABLE_LOCAL)
+)
 
 var poolFibEntry = sync.Pool{
 	New: func() interface{} {
@@ -47,6 +56,7 @@ var poolFibEntry = sync.Pool{
 		}
 	},
 }
+
 var poolNH = sync.Pool{
 	New: func() interface{} {
 		return &NH{
@@ -55,23 +65,60 @@ var poolNH = sync.Pool{
 	},
 }
 
-func (nh *NH) Pool() {
-	nh.IP = nh.IP[:cap(nh.IP)]
-	poolNH.Put(nh)
+func newFibEntry() *FibEntry {
+	fe := poolFibEntry.Get().(*FibEntry)
+	fe.Hold()
+	return fe
+}
+
+func newNH() *NH {
+	return poolNH.Get().(*NH)
 }
 
 func (fe *FibEntry) Pool() {
+	if fe.Release() > 0 {
+		return
+	}
 	for _, nh := range fe.NHs {
 		nh.Pool()
 	}
 	fe.NHs = fe.NHs[:0]
-	fe.IPNet.IP = fe.IPNet.IP[:cap(fe.IPNet.IP)]
-	fe.IPNet.Mask = fe.IPNet.Mask[:cap(fe.IPNet.Mask)]
+	fe.IPNet.IP = fe.IPNet.IP[:net.IPv6len]
+	fe.IPNet.Mask = fe.IPNet.Mask[:net.IPv6len]
 	poolFibEntry.Put(fe)
 }
 
+func (nh *NH) Pool() {
+	nh.IP = nh.IP[:net.IPv6len]
+	poolNH.Put(nh)
+}
+
+// to sort a list of fib entries,
+//	sort.Slice(fib, func(i, j int) bool {
+//		return fib[i].Less(fib[j])
+//	})
+func (feI *FibEntry) Less(feJ *FibEntry) bool {
+	if feI.NetNs != feJ.NetNs {
+		return feI.NetNs < feJ.NetNs
+	}
+	if feI.RtTable != feJ.RtTable {
+		return feI.RtTable < feJ.RtTable
+	}
+	switch bytes.Compare(feI.IPNet.IP, feJ.IPNet.IP) {
+	case 0:
+		onesI, _ := feI.IPNet.Mask.Size()
+		onesJ, _ := feJ.IPNet.Mask.Size()
+		return onesI < onesJ
+	case -1:
+		return true
+	case 1:
+		return false
+	}
+	return false
+}
+
 func fib4(msg *internal.MsgFibEntry) *FibEntry {
-	fe := poolFibEntry.Get().(*FibEntry)
+	fe := newFibEntry()
 	fe.NetNs = NetNs(msg.Net)
 	*(*uint32)(unsafe.Pointer(&fe.IPNet.IP[0])) = msg.Address
 	*(*uint32)(unsafe.Pointer(&fe.IPNet.Mask[0])) = msg.Mask
@@ -86,7 +133,7 @@ func fib4(msg *internal.MsgFibEntry) *FibEntry {
 		if xid == 0 {
 			continue
 		}
-		fenh := poolNH.Get().(*NH)
+		fenh := newNH()
 		*(*uint32)(unsafe.Pointer(&fenh.IP[0])) = nh.Gw
 		fenh.IP = fenh.IP[:net.IPv4len]
 		fenh.Xid = xid
@@ -95,12 +142,13 @@ func fib4(msg *internal.MsgFibEntry) *FibEntry {
 		fenh.RtScope = RtScope(nh.Scope)
 		fe.NHs = append(fe.NHs, fenh)
 	}
+	fe.NetNs.fibentry(fe)
 	return fe
 }
 
 func fib6(msg *internal.MsgFib6Entry) *FibEntry {
 	netns := NetNs(msg.Net)
-	fe := poolFibEntry.Get().(*FibEntry)
+	fe := newFibEntry()
 	fe.NetNs = netns
 	copy(fe.IPNet.IP, msg.Address[:])
 	fe.IPNet.Mask = net.CIDRMask(int(msg.Length), net.IPv6len*8)
@@ -111,7 +159,7 @@ func fib6(msg *internal.MsgFib6Entry) *FibEntry {
 	if nhxid == 0 {
 		return fe
 	}
-	nh := poolNH.Get().(*NH)
+	nh := newNH()
 	copy(nh.IP, msg.Nh.Gw[:])
 	nh.Xid = nhxid
 	nh.Weight = msg.Nh.Weight
@@ -122,12 +170,13 @@ func fib6(msg *internal.MsgFib6Entry) *FibEntry {
 		if sibxid == 0 {
 			continue
 		}
-		nh = poolNH.Get().(*NH)
+		nh = newNH()
 		copy(nh.IP, sibling.Gw[:])
 		nh.Xid = sibxid
 		nh.Weight = sibling.Weight
 		nh.RtnhFlags = RtnhFlags(sibling.Flags)
 		fe.NHs = append(fe.NHs, nh)
 	}
+	fe.NetNs.fibentry(fe)
 	return fe
 }
