@@ -148,6 +148,10 @@ func (xid Xid) RxDelete() (note DevDel) {
 	return
 }
 
+func (xid Xid) String() string {
+	return xid.Attrs().IfInfoName()
+}
+
 func (attrs *XidAttrs) Map() *sync.Map {
 	return (*sync.Map)(attrs)
 }
