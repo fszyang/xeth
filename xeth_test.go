@@ -41,13 +41,26 @@ func Test(t *testing.T) {
 
 	Range(func(xid Xid) bool {
 		attrs := xid.Attrs()
-		fmt.Print(attrs.IfInfoName(),
-			", xid ", uint32(xid),
-			", ifindex ", attrs.IfInfoIfIndex(),
+		fmt.Print(attrs.IfInfoName(), ", xid ")
+		if xid < VlanNVid {
+			fmt.Print(uint32(xid))
+		} else {
+			fmt.Print("(", uint32(xid/VlanNVid), ", ",
+				uint32(xid&VlanVidMask), ")")
+		}
+		fmt.Print(", ifindex ", attrs.IfInfoIfIndex(),
 			", netns ", attrs.IfInfoNetNs(),
-			", kind ", attrs.IfInfoDevKind(),
-			", ipnets ", attrs.IPNets(),
-			"\n")
+			", kind ", attrs.IfInfoDevKind())
+		if ipnets := attrs.IPNets(); len(ipnets) > 0 {
+			fmt.Print(", ipnets ", ipnets)
+		}
+		if uppers := attrs.Uppers(); len(uppers) > 0 {
+			fmt.Print(", uppers ", uppers)
+		}
+		if lowers := attrs.Lowers(); len(lowers) > 0 {
+			fmt.Print(", lowers ", lowers)
+		}
+		fmt.Println()
 		return true
 	})
 
