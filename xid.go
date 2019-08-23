@@ -108,7 +108,8 @@ func (xid Xid) Attrs() (attrs *XidAttrs) {
 	if v, ok := XidAttrMaps.Load(xid); ok {
 		attrs = (*XidAttrs)(v.(*sync.Map))
 	} else if true {
-		panic(fmt.Errorf("xid %d hasn't been mapped", uint32(xid)))
+		panic(fmt.Errorf("xid (%d, %d) hasn't been mapped",
+			uint32(xid/VlanNVid), uint32(xid&VlanVidMask)))
 	}
 	return
 }
