@@ -25,7 +25,7 @@ type DevReg struct {
 
 func (xid Xid) RxIfInfo(msg *internal.MsgIfInfo) (note interface{}) {
 	attrs := xid.attrs()
-	if _, ok := attrs.Map().Load(IfInfoNameXidAttr); ok {
+	if _, ok := attrs.Load(IfInfoNameXidAttr); ok {
 		note = DevDump(xid)
 	} else {
 		note = DevNew(xid)
@@ -54,7 +54,7 @@ func (xid Xid) RxUp() DevUp {
 	attrs := xid.Attrs()
 	flags := attrs.IfInfoFlags()
 	flags |= net.FlagUp
-	attrs.Map().Store(IfInfoFlagsXidAttr, flags)
+	attrs.Store(IfInfoFlagsXidAttr, flags)
 	return DevUp(xid)
 }
 
@@ -62,7 +62,7 @@ func (xid Xid) RxDown() DevDown {
 	attrs := xid.Attrs()
 	flags := attrs.IfInfoFlags()
 	flags &^= net.FlagUp
-	attrs.Map().Store(IfInfoFlagsXidAttr, flags)
+	attrs.Store(IfInfoFlagsXidAttr, flags)
 	return DevDown(xid)
 }
 
