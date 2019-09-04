@@ -236,7 +236,7 @@ func Parse(buf Buffer) interface{} {
 		case internal.IfInfoReasonDump:
 			return xid.RxIfInfo(msg)
 		case internal.IfInfoReasonDel:
-			return xid.RxDelete()
+			return RxDelete(xid)
 		case internal.IfInfoReasonUp:
 			return xid.RxUp()
 		case internal.IfInfoReasonDown:
@@ -453,7 +453,7 @@ func (task *Task) tx(buf buffer, timeout time.Duration) error {
 		if kind(buf) == internal.MsgKindCarrier {
 			msg := (*internal.MsgCarrier)(buf.pointer())
 			xid := Xid(msg.Xid)
-			xid.Attrs().LinkUp(msg.Flag == internal.CarrierOn)
+			LinkAttrs(xid).LinkUp(msg.Flag == internal.CarrierOn)
 		}
 	}
 	return err

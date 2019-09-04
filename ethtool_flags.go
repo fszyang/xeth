@@ -12,10 +12,10 @@ type DevEthtoolFlags struct {
 }
 
 func (xid Xid) RxEthtoolFlags(flags uint32) *DevEthtoolFlags {
-	attrs := xid.Attrs()
+	attrs := LinkAttrs(xid)
 	bits := EthtoolFlagBits(flags)
 	if flags == 0 {
-		attrs.Delete(EthtoolFlagsXidAttr)
+		attrs.Delete(XethLinkAttrEthtoolFlags)
 	} else {
 		attrs.EthtoolFlags(bits)
 	}

@@ -13,102 +13,42 @@ import (
 
 type Xid uint32
 type Xids []Xid
-type XidAttr uint8
-type XidAttrs struct {
-	sync.Map
-}
+type XethLinkAttr uint8
 
 const (
-	EthtoolAutoNegXidAttr XidAttr = iota
-	EthtoolDevPortXidAttr
-	EthtoolDuplexXidAttr
-	EthtoolFlagsXidAttr
-	EthtoolSpeedXidAttr
-	IPNetsXidAttr
-	IfInfoNameXidAttr
-	IfInfoIfIndexXidAttr
-	IfInfoNetNsXidAttr
-	IfInfoFlagsXidAttr
-	IfInfoDevKindXidAttr
-	IfInfoHardwareAddrXidAttr
-	LinkModesAdvertisingXidAttr
-	LinkModesLPAdvertisingXidAttr
-	LinkModesSupportedXidAttr
-	LinkUpXidAttr
-	LowersXidAttr
-	StatNamesXidAttr
-	StatsXidAttr
-	UppersXidAttr
+	XethLinkAttrEthtoolAutoNeg XethLinkAttr = iota
+	XethLinkAttrEthtoolDevPort
+	XethLinkAttrEthtoolDuplex
+	XethLinkAttrEthtoolFlags
+	XethLinkAttrEthtoolSpeed
+	XethLinkAttrIPNets
+	XethLinkAttrIfInfoName
+	XethLinkAttrIfInfoIfIndex
+	XethLinkAttrIfInfoNetNs
+	XethLinkAttrIfInfoFlags
+	XethLinkAttrIfInfoDevKind
+	XethLinkAttrIfInfoHardwareAddr
+	XethLinkAttrLinkModesAdvertising
+	XethLinkAttrLinkModesLPAdvertising
+	XethLinkAttrLinkModesSupported
+	XethLinkAttrLinkUp
+	XethLinkAttrLowers
+	XethLinkAttrStatNames
+	XethLinkAttrStats
+	XethLinkAttrUppers
+	XethLinkAttrXid
 )
 
-var XidsAttrs sync.Map
-
-func Range(f func(xid Xid) bool) {
-	XidsAttrs.Range(func(k, v interface{}) bool {
-		return f(k.(Xid))
-	})
+type XethLinkAttrs struct {
+	*sync.Map
 }
 
-func NewXids() (xids Xids) {
-	DockerScan()
-	Range(func(xid Xid) bool {
-		xids = append(xids, xid)
-		return true
-	})
-	return
-}
+var LinkAttrMaps sync.Map
 
-func (xids Xids) Cut(i int) Xids {
-	copy(xids[i:], xids[i+1:])
-	return xids[:len(xids)-1]
-}
-
-func (xids Xids) FilterContainer(re *regexp.Regexp) Xids {
-	for i := 0; i < len(xids); {
-		ns := xids[i].Attrs().IfInfoNetNs()
-		if re.MatchString(ns.ContainerName()) ||
-			re.MatchString(ns.ContainerId()) {
-			i += 1
-		} else {
-			xids = xids.Cut(i)
-		}
-	}
-	return xids
-}
-
-func (xids Xids) FilterName(re *regexp.Regexp) Xids {
-	for i := 0; i < len(xids); {
-		if re.MatchString(xids[i].Attrs().IfInfoName()) {
-			i += 1
-		} else {
-			xids = xids.Cut(i)
-		}
-	}
-	return xids
-}
-
-func (xids Xids) FilterNetNs(re *regexp.Regexp) Xids {
-	for i := 0; i < len(xids); {
-		ns := xids[i].Attrs().IfInfoNetNs()
-		if re.MatchString(ns.String()) {
-			i += 1
-		} else {
-			xids = xids.Cut(i)
-		}
-	}
-	return xids
-}
-
-// Valid() if xid has mapped attributes
-func (xid Xid) Valid() bool {
-	_, ok := XidsAttrs.Load(xid)
-	return ok
-}
-
-// get mapped attrs but panic if unavailable
-func (xid Xid) Attrs() (attrs *XidAttrs) {
-	if v, ok := XidsAttrs.Load(xid); ok {
-		attrs = v.(*XidAttrs)
+// get attrs map but panic if unavailable
+func LinkAttrMap(xid Xid) (m *sync.Map) {
+	if v, ok := LinkAttrMaps.Load(xid); ok {
+		m = v.(*sync.Map)
 	} else if true {
 		panic(fmt.Errorf("xid (%d, %d) hasn't been mapped",
 			uint32(xid/VlanNVid), uint32(xid&VlanVidMask)))
@@ -116,24 +56,49 @@ func (xid Xid) Attrs() (attrs *XidAttrs) {
 	return
 }
 
-// make the xid's attrs map if it's not already available
-func (xid Xid) attrs() (attrs *XidAttrs) {
-	if v, ok := XidsAttrs.Load(xid); ok {
-		attrs = v.(*XidAttrs)
+func LinkAttrs(xid Xid) XethLinkAttrs {
+	return XethLinkAttrs{LinkAttrMap(xid)}
+}
+
+func LinkRange(f func(xid Xid, m *sync.Map) bool) {
+	LinkAttrMaps.Range(func(k, v interface{}) bool {
+		return f(k.(Xid), v.(*sync.Map))
+	})
+}
+
+func ListXids() (xids Xids) {
+	// scan docker containers to cache their name space attributes
+	DockerScan()
+	LinkRange(func(xid Xid, m *sync.Map) bool {
+		xids = append(xids, xid)
+		return true
+	})
+	return
+}
+
+// make the xid attrs map if it's not already available
+func MayMakeLinkAttrMap(xid Xid) (m *sync.Map) {
+	if v, ok := LinkAttrMaps.Load(xid); ok {
+		m = v.(*sync.Map)
 	} else {
-		attrs = new(XidAttrs)
-		XidsAttrs.Store(xid, attrs)
+		m = new(sync.Map)
+		LinkAttrMaps.Store(xid, m)
+		m.Store(XethLinkAttrXid, xid)
 	}
 	return
 }
 
-func (xid Xid) RxDelete() (note DevDel) {
-	defer XidsAttrs.Delete(xid)
+func MayMakeLinkAttrs(xid Xid) XethLinkAttrs {
+	return XethLinkAttrs{MayMakeLinkAttrMap(xid)}
+}
+
+func RxDelete(xid Xid) (note DevDel) {
+	defer LinkAttrMaps.Delete(xid)
 	note = DevDel(xid)
-	if !xid.Valid() {
+	if !Valid(xid) {
 		return
 	}
-	attrs := xid.Attrs()
+	attrs := LinkAttrs(xid)
 	for _, entry := range attrs.IPNets() {
 		entry.IP = entry.IP[:cap(entry.IP)]
 		entry.Mask = entry.Mask[:cap(entry.Mask)]
@@ -149,230 +114,277 @@ func (xid Xid) RxDelete() (note DevDel) {
 	return
 }
 
-func (xid Xid) String() string {
-	return xid.Attrs().IfInfoName()
+// Valid() if xid has mapped attributes
+func Valid(xid Xid) bool {
+	_, ok := LinkAttrMaps.Load(xid)
+	return ok
 }
 
-func (attrs *XidAttrs) EthtoolAutoNeg(set ...AutoNeg) (an AutoNeg) {
+func (attrs XethLinkAttrs) EthtoolAutoNeg(set ...AutoNeg) (an AutoNeg) {
 	if len(set) > 0 {
 		an = set[0]
-		attrs.Store(EthtoolAutoNegXidAttr, an)
-	} else if v, ok := attrs.Load(EthtoolAutoNegXidAttr); ok {
+		attrs.Store(XethLinkAttrEthtoolAutoNeg, an)
+	} else if v, ok := attrs.Load(XethLinkAttrEthtoolAutoNeg); ok {
 		an = v.(AutoNeg)
 	}
 	return
 }
 
-func (attrs *XidAttrs) EthtoolDuplex(set ...Duplex) (duplex Duplex) {
+func (attrs XethLinkAttrs) EthtoolDuplex(set ...Duplex) (duplex Duplex) {
 	if len(set) > 0 {
 		duplex = set[0]
-		attrs.Store(EthtoolDuplexXidAttr, duplex)
-	} else if v, ok := attrs.Load(EthtoolDuplexXidAttr); ok {
+		attrs.Store(XethLinkAttrEthtoolDuplex, duplex)
+	} else if v, ok := attrs.Load(XethLinkAttrEthtoolDuplex); ok {
 		duplex = v.(Duplex)
 	}
 	return
 }
 
-func (attrs *XidAttrs) EthtoolDevPort(set ...DevPort) (devport DevPort) {
+func (attrs XethLinkAttrs) EthtoolDevPort(set ...DevPort) (devport DevPort) {
 	if len(set) > 0 {
 		devport = set[0]
-		attrs.Store(EthtoolDevPortXidAttr, devport)
-	} else if v, ok := attrs.Load(EthtoolDevPortXidAttr); ok {
+		attrs.Store(XethLinkAttrEthtoolDevPort, devport)
+	} else if v, ok := attrs.Load(XethLinkAttrEthtoolDevPort); ok {
 		devport = v.(DevPort)
 	}
 	return
 }
 
-func (attrs *XidAttrs) EthtoolFlags(set ...EthtoolFlagBits) (bits EthtoolFlagBits) {
+func (attrs XethLinkAttrs) EthtoolFlags(set ...EthtoolFlagBits) (bits EthtoolFlagBits) {
 	if len(set) > 0 {
 		bits = set[0]
-		attrs.Store(EthtoolFlagsXidAttr, bits)
-	} else if v, ok := attrs.Load(EthtoolFlagsXidAttr); ok {
+		attrs.Store(XethLinkAttrEthtoolFlags, bits)
+	} else if v, ok := attrs.Load(XethLinkAttrEthtoolFlags); ok {
 		bits = v.(EthtoolFlagBits)
 	}
 	return
 }
 
-func (attrs *XidAttrs) EthtoolSpeed(set ...uint32) (mbps uint32) {
+func (attrs XethLinkAttrs) EthtoolSpeed(set ...uint32) (mbps uint32) {
 	if len(set) > 0 {
 		mbps = set[0]
-		attrs.Store(EthtoolSpeedXidAttr, mbps)
-	} else if v, ok := attrs.Load(EthtoolSpeedXidAttr); ok {
+		attrs.Store(XethLinkAttrEthtoolSpeed, mbps)
+	} else if v, ok := attrs.Load(XethLinkAttrEthtoolSpeed); ok {
 		mbps = v.(uint32)
 	}
 	return
 }
 
-func (attrs *XidAttrs) IfInfoName(set ...string) (name string) {
+func (attrs XethLinkAttrs) IfInfoName(set ...string) (name string) {
 	if len(set) > 0 {
 		name = set[0]
-		attrs.Store(IfInfoNameXidAttr, name)
-	} else if v, ok := attrs.Load(IfInfoNameXidAttr); ok {
+		attrs.Store(XethLinkAttrIfInfoName, name)
+	} else if v, ok := attrs.Load(XethLinkAttrIfInfoName); ok {
 		name = v.(string)
 	}
 	return
 }
 
-func (attrs *XidAttrs) IfInfoIfIndex(set ...int32) (ifindex int32) {
+func (attrs XethLinkAttrs) IfInfoIfIndex(set ...int32) (ifindex int32) {
 	if len(set) > 0 {
 		ifindex = set[0]
-		attrs.Store(IfInfoIfIndexXidAttr, ifindex)
-	} else if v, ok := attrs.Load(IfInfoIfIndexXidAttr); ok {
+		attrs.Store(XethLinkAttrIfInfoIfIndex, ifindex)
+	} else if v, ok := attrs.Load(XethLinkAttrIfInfoIfIndex); ok {
 		ifindex = v.(int32)
 	}
 	return
 }
 
-func (attrs *XidAttrs) IfInfoNetNs(set ...NetNs) (netns NetNs) {
+func (attrs XethLinkAttrs) IfInfoNetNs(set ...NetNs) (netns NetNs) {
 	if len(set) > 0 {
 		netns = set[0]
-		attrs.Store(IfInfoNetNsXidAttr, netns)
-	} else if v, ok := attrs.Load(IfInfoNetNsXidAttr); ok {
+		attrs.Store(XethLinkAttrIfInfoNetNs, netns)
+	} else if v, ok := attrs.Load(XethLinkAttrIfInfoNetNs); ok {
 		netns = v.(NetNs)
 	}
 	return
 }
 
-func (attrs *XidAttrs) IfInfoFlags(set ...net.Flags) (flags net.Flags) {
+func (attrs XethLinkAttrs) IfInfoFlags(set ...net.Flags) (flags net.Flags) {
 	if len(set) > 0 {
 		flags = set[0]
-		attrs.Store(IfInfoFlagsXidAttr, flags)
-	} else if v, ok := attrs.Load(IfInfoFlagsXidAttr); ok {
+		attrs.Store(XethLinkAttrIfInfoFlags, flags)
+	} else if v, ok := attrs.Load(XethLinkAttrIfInfoFlags); ok {
 		flags = v.(net.Flags)
 	}
 	return
 }
 
-func (attrs *XidAttrs) IfInfoDevKind(set ...DevKind) (devkind DevKind) {
+func (attrs XethLinkAttrs) IfInfoDevKind(set ...DevKind) (devkind DevKind) {
 	if len(set) > 0 {
 		devkind = set[0]
-		attrs.Store(IfInfoDevKindXidAttr, devkind)
-	} else if v, ok := attrs.Load(IfInfoDevKindXidAttr); ok {
+		attrs.Store(XethLinkAttrIfInfoDevKind, devkind)
+	} else if v, ok := attrs.Load(XethLinkAttrIfInfoDevKind); ok {
 		devkind = v.(DevKind)
 	}
 	return
 }
 
-func (attrs *XidAttrs) IfInfoHardwareAddr(set ...net.HardwareAddr) (ha net.HardwareAddr) {
+func (attrs XethLinkAttrs) IfInfoHardwareAddr(set ...net.HardwareAddr) (ha net.HardwareAddr) {
 	if len(set) > 0 {
 		ha = set[0]
-		attrs.Store(IfInfoHardwareAddrXidAttr, ha)
-	} else if v, ok := attrs.Load(IfInfoHardwareAddrXidAttr); ok {
+		attrs.Store(XethLinkAttrIfInfoHardwareAddr, ha)
+	} else if v, ok := attrs.Load(XethLinkAttrIfInfoHardwareAddr); ok {
 		ha = v.(net.HardwareAddr)
 	}
 	return
 }
 
-func (attrs *XidAttrs) IPNets(set ...[]*net.IPNet) (l []*net.IPNet) {
+func (attrs XethLinkAttrs) IPNets(set ...[]*net.IPNet) (l []*net.IPNet) {
 	if len(set) > 0 {
 		l = set[0]
-		attrs.Store(IPNetsXidAttr, l)
-	} else if v, ok := attrs.Load(IPNetsXidAttr); ok {
+		attrs.Store(XethLinkAttrIPNets, l)
+	} else if v, ok := attrs.Load(XethLinkAttrIPNets); ok {
 		l = v.([]*net.IPNet)
 	}
 	return
 }
 
-func (attrs *XidAttrs) IsAdminUp() bool {
+func (attrs XethLinkAttrs) IsAdminUp() bool {
 	return attrs.IfInfoFlags()&net.FlagUp == net.FlagUp
 }
 
-func (attrs *XidAttrs) IsAutoNeg() bool {
+func (attrs XethLinkAttrs) IsAutoNeg() bool {
 	return attrs.EthtoolAutoNeg() == AUTONEG_ENABLE
 }
 
-func (attrs *XidAttrs) IsBridge() bool {
+func (attrs XethLinkAttrs) IsBridge() bool {
 	return attrs.IfInfoDevKind() == DevKindBridge
 }
 
-func (attrs *XidAttrs) IsLag() bool {
+func (attrs XethLinkAttrs) IsLag() bool {
 	return attrs.IfInfoDevKind() == DevKindLag
 }
 
-func (attrs *XidAttrs) IsPort() bool {
+func (attrs XethLinkAttrs) IsPort() bool {
 	return attrs.IfInfoDevKind() == DevKindPort
 }
 
-func (attrs *XidAttrs) IsVlan() bool {
+func (attrs XethLinkAttrs) IsVlan() bool {
 	return attrs.IfInfoDevKind() == DevKindVlan
 }
 
-func (attrs *XidAttrs) LinkModesSupported(set ...EthtoolLinkModeBits) (modes EthtoolLinkModeBits) {
+func (attrs XethLinkAttrs) LinkModesSupported(set ...EthtoolLinkModeBits) (modes EthtoolLinkModeBits) {
 	if len(set) > 0 {
 		modes = set[0]
-		attrs.Store(LinkModesSupportedXidAttr, modes)
-	} else if v, ok := attrs.Load(LinkModesSupportedXidAttr); ok {
+		attrs.Store(XethLinkAttrLinkModesSupported, modes)
+	} else if v, ok := attrs.Load(XethLinkAttrLinkModesSupported); ok {
 		modes = v.(EthtoolLinkModeBits)
 	}
 	return
 }
 
-func (attrs *XidAttrs) LinkModesAdvertising(set ...EthtoolLinkModeBits) (modes EthtoolLinkModeBits) {
+func (attrs XethLinkAttrs) LinkModesAdvertising(set ...EthtoolLinkModeBits) (modes EthtoolLinkModeBits) {
 	if len(set) > 0 {
 		modes = set[0]
-		attrs.Store(LinkModesAdvertisingXidAttr, modes)
-	} else if v, ok := attrs.Load(LinkModesAdvertisingXidAttr); ok {
+		attrs.Store(XethLinkAttrLinkModesAdvertising, modes)
+	} else if v, ok := attrs.Load(XethLinkAttrLinkModesAdvertising); ok {
 		modes = v.(EthtoolLinkModeBits)
 	}
 	return
 }
 
-func (attrs *XidAttrs) LinkModesLPAdvertising(set ...EthtoolLinkModeBits) (modes EthtoolLinkModeBits) {
+func (attrs XethLinkAttrs) LinkModesLPAdvertising(set ...EthtoolLinkModeBits) (modes EthtoolLinkModeBits) {
 	if len(set) > 0 {
 		modes = set[0]
-		attrs.Store(LinkModesLPAdvertisingXidAttr, modes)
-	} else if v, ok := attrs.Load(LinkModesLPAdvertisingXidAttr); ok {
+		attrs.Store(XethLinkAttrLinkModesLPAdvertising, modes)
+	} else if v, ok := attrs.Load(XethLinkAttrLinkModesLPAdvertising); ok {
 		modes = v.(EthtoolLinkModeBits)
 	}
 	return
 }
 
-func (attrs *XidAttrs) LinkUp(set ...bool) (up bool) {
+func (attrs XethLinkAttrs) LinkUp(set ...bool) (up bool) {
 	if len(set) > 0 {
 		up = set[0]
-		attrs.Store(LinkUpXidAttr, up)
-	} else if v, ok := attrs.Load(LinkUpXidAttr); ok {
+		attrs.Store(XethLinkAttrLinkUp, up)
+	} else if v, ok := attrs.Load(XethLinkAttrLinkUp); ok {
 		up = v.(bool)
 	}
 	return
 }
 
-func (attrs *XidAttrs) Lowers(set ...[]Xid) (xids []Xid) {
+func (attrs XethLinkAttrs) Lowers(set ...[]Xid) (xids []Xid) {
 	if len(set) > 0 {
 		xids = set[0]
-		attrs.Store(LowersXidAttr, xids)
-	} else if v, ok := attrs.Load(LowersXidAttr); ok {
+		attrs.Store(XethLinkAttrLowers, xids)
+	} else if v, ok := attrs.Load(XethLinkAttrLowers); ok {
 		xids = v.([]Xid)
 	}
 	return
 }
 
-func (attrs *XidAttrs) Uppers(set ...[]Xid) (xids []Xid) {
+func (attrs XethLinkAttrs) Uppers(set ...[]Xid) (xids []Xid) {
 	if len(set) > 0 {
 		xids = set[0]
-		attrs.Store(UppersXidAttr, xids)
-	} else if v, ok := attrs.Load(UppersXidAttr); ok {
+		attrs.Store(XethLinkAttrUppers, xids)
+	} else if v, ok := attrs.Load(XethLinkAttrUppers); ok {
 		xids = v.([]Xid)
 	}
 	return
 }
 
-func (attrs *XidAttrs) Stats(set ...[]uint64) (stats []uint64) {
+func (attrs XethLinkAttrs) Stats(set ...[]uint64) (stats []uint64) {
 	if len(set) > 0 {
 		stats = set[0]
-		attrs.Store(StatsXidAttr, stats)
-	} else if v, ok := attrs.Load(StatsXidAttr); ok {
+		attrs.Store(XethLinkAttrStats, stats)
+	} else if v, ok := attrs.Load(XethLinkAttrStats); ok {
 		stats = v.([]uint64)
 	}
 	return
 }
 
-func (attrs *XidAttrs) StatNames(set ...[]string) (names []string) {
+func (attrs XethLinkAttrs) StatNames(set ...[]string) (names []string) {
 	if len(set) > 0 {
 		names = set[0]
-		attrs.Store(StatNamesXidAttr, names)
-	} else if v, ok := attrs.Load(StatNamesXidAttr); ok {
+		attrs.Store(XethLinkAttrStatNames, names)
+	} else if v, ok := attrs.Load(XethLinkAttrStatNames); ok {
 		names = v.([]string)
 	}
 	return
+}
+
+func (attrs XethLinkAttrs) String() string {
+	return attrs.IfInfoName()
+}
+
+func (xids Xids) Cut(i int) Xids {
+	copy(xids[i:], xids[i+1:])
+	return xids[:len(xids)-1]
+}
+
+func (xids Xids) FilterContainer(re *regexp.Regexp) Xids {
+	for i := 0; i < len(xids); {
+		ns := LinkAttrs(xids[i]).IfInfoNetNs()
+		if re.MatchString(ns.ContainerName()) ||
+			re.MatchString(ns.ContainerId()) {
+			i += 1
+		} else {
+			xids = xids.Cut(i)
+		}
+	}
+	return xids
+}
+
+func (xids Xids) FilterName(re *regexp.Regexp) Xids {
+	for i := 0; i < len(xids); {
+		if re.MatchString(LinkAttrs(xids[i]).IfInfoName()) {
+			i += 1
+		} else {
+			xids = xids.Cut(i)
+		}
+	}
+	return xids
+}
+
+func (xids Xids) FilterNetNs(re *regexp.Regexp) Xids {
+	for i := 0; i < len(xids); {
+		ns := LinkAttrs(xids[i]).IfInfoNetNs()
+		if re.MatchString(ns.String()) {
+			i += 1
+		} else {
+			xids = xids.Cut(i)
+		}
+	}
+	return xids
 }

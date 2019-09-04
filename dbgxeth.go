@@ -2,15 +2,15 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build dbgxeth
+// +build !nodbgxeth
 
 package xeth
 
 import "fmt"
 
 func (xid Xid) Format(f fmt.State, c rune) {
-	if xid.Valid() {
-		fmt.Fprint(f, xid.Attrs().IfInfoName())
+	if Valid(xid) {
+		fmt.Fprint(f, LinkAttrs(xid).IfInfoName())
 		return
 	}
 	if xid > VlanNVid {
@@ -72,7 +72,7 @@ func (dev *DevEthtoolFlags) Format(f fmt.State, c rune) {
 
 func (dev DevEthtoolSettings) Format(f fmt.State, c rune) {
 	xid := Xid(dev)
-	attrs := xid.Attrs()
+	attrs := LinkAttrs(xid)
 	fmt.Fprint(f, xid)
 	fmt.Fprint(f, " speed ", attrs.EthtoolSpeed(), " (mbps)")
 	fmt.Fprint(f, " autoneg ", attrs.EthtoolAutoNeg())
@@ -82,17 +82,17 @@ func (dev DevEthtoolSettings) Format(f fmt.State, c rune) {
 
 func (dev DevLinkModesSupported) Format(f fmt.State, c rune) {
 	xid := Xid(dev)
-	fmt.Fprint(f, xid, "<", xid.Attrs().LinkModesSupported(), ">")
+	fmt.Fprint(f, xid, "<", LinkAttrs(xid).LinkModesSupported(), ">")
 }
 
 func (dev DevLinkModesAdvertising) Format(f fmt.State, c rune) {
 	xid := Xid(dev)
-	fmt.Fprint(f, xid, "<", xid.Attrs().LinkModesAdvertising(), ">")
+	fmt.Fprint(f, xid, "<", LinkAttrs(xid).LinkModesAdvertising(), ">")
 }
 
 func (dev DevLinkModesLPAdvertising) Format(f fmt.State, c rune) {
 	xid := Xid(dev)
-	fmt.Fprint(f, xid, "<", xid.Attrs().LinkModesLPAdvertising(), ">")
+	fmt.Fprint(f, xid, "<", LinkAttrs(xid).LinkModesLPAdvertising(), ">")
 }
 
 func (bits EthtoolFlagBits) Format(f fmt.State, c rune) {

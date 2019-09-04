@@ -39,8 +39,8 @@ func Test(t *testing.T) {
 		Pool(Parse(buf))
 	}
 
-	Range(func(xid Xid) bool {
-		attrs := xid.Attrs()
+	LinkRange(func(xid Xid, m *sync.Map) bool {
+		attrs := XethLinkAttrs{m}
 		fmt.Print(attrs.IfInfoName(), ", xid ")
 		if xid < VlanNVid {
 			fmt.Print(uint32(xid))
