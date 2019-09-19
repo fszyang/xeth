@@ -51,7 +51,7 @@ func (xid Xid) RxIfInfo(msg *internal.MsgIfInfo) (note interface{}) {
 }
 
 func (xid Xid) RxUp() DevUp {
-	attrs := LinkAttrs(xid)
+	attrs := LinkAttrsOf(xid)
 	flags := attrs.IfInfoFlags()
 	flags |= net.FlagUp
 	attrs.IfInfoFlags(flags)
@@ -59,7 +59,7 @@ func (xid Xid) RxUp() DevUp {
 }
 
 func (xid Xid) RxDown() DevDown {
-	attrs := LinkAttrs(xid)
+	attrs := LinkAttrsOf(xid)
 	flags := attrs.IfInfoFlags()
 	flags &^= net.FlagUp
 	attrs.IfInfoFlags(flags)
@@ -67,7 +67,7 @@ func (xid Xid) RxDown() DevDown {
 }
 
 func (xid Xid) RxReg(netns NetNs) *DevReg {
-	xidattrs := LinkAttrs(xid)
+	xidattrs := LinkAttrsOf(xid)
 	ifindex := xidattrs.IfInfoIfIndex()
 	if netns != DefaultNetNs {
 		DefaultNetNs.Xid(ifindex, 0)
@@ -80,7 +80,7 @@ func (xid Xid) RxReg(netns NetNs) *DevReg {
 }
 
 func (xid Xid) RxUnreg() DevUnreg {
-	xidattrs := LinkAttrs(xid)
+	xidattrs := LinkAttrsOf(xid)
 	ifindex := xidattrs.IfInfoIfIndex()
 	oldns := xidattrs.IfInfoNetNs()
 	oldns.Xid(ifindex, 0)

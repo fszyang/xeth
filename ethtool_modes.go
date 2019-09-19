@@ -11,7 +11,7 @@ type DevLinkModesAdvertising Xid
 type DevLinkModesLPAdvertising Xid
 
 func (xid Xid) RxSupported(modes []uint8) DevLinkModesSupported {
-	attrs := LinkAttrs(xid)
+	attrs := LinkAttrsOf(xid)
 	supported := attrs.LinkModesSupported()
 	if supported == nil || len(supported) != len(modes) {
 		supported = make(EthtoolLinkModeBits, len(modes))
@@ -22,7 +22,7 @@ func (xid Xid) RxSupported(modes []uint8) DevLinkModesSupported {
 }
 
 func (xid Xid) RxAdvertising(modes []uint8) DevLinkModesAdvertising {
-	attrs := LinkAttrs(xid)
+	attrs := LinkAttrsOf(xid)
 	advertising := attrs.LinkModesAdvertising()
 	if advertising == nil || len(advertising) != len(modes) {
 		advertising = make(EthtoolLinkModeBits, len(modes))
@@ -33,7 +33,7 @@ func (xid Xid) RxAdvertising(modes []uint8) DevLinkModesAdvertising {
 }
 
 func (xid Xid) RxLPAdvertising(modes []uint8) DevLinkModesLPAdvertising {
-	attrs := LinkAttrs(xid)
+	attrs := LinkAttrsOf(xid)
 	lpadvertising := attrs.LinkModesLPAdvertising()
 	if lpadvertising == nil || len(lpadvertising) != len(modes) {
 		lpadvertising = make(EthtoolLinkModeBits, len(modes))

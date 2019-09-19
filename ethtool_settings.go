@@ -13,7 +13,7 @@ type DevPort uint8
 type DevEthtoolSettings Xid
 
 func (xid Xid) RxEthtoolSettings(msg *internal.MsgEthtoolSettings) DevEthtoolSettings {
-	attrs := LinkAttrs(xid)
+	attrs := LinkAttrsOf(xid)
 	attrs.EthtoolSpeed(msg.Speed)
 	attrs.EthtoolAutoNeg(AutoNeg(msg.Autoneg))
 	attrs.EthtoolDuplex(Duplex(msg.Duplex))

@@ -10,7 +10,7 @@ import "fmt"
 
 func (xid Xid) Format(f fmt.State, c rune) {
 	if Valid(xid) {
-		fmt.Fprint(f, LinkAttrs(xid).IfInfoName())
+		fmt.Fprint(f, LinkAttrsOf(xid).IfInfoName())
 		return
 	}
 	if xid > VlanNVid {
@@ -59,11 +59,11 @@ func (dev *DevDelIPNet) Format(f fmt.State, c rune) {
 }
 
 func (dev *DevJoin) Format(f fmt.State, c rune) {
-	fmt.Fprint(f, dev.lower, " join ", dev.upper)
+	fmt.Fprint(f, dev.Lower, " join ", dev.Upper)
 }
 
 func (dev *DevQuit) Format(f fmt.State, c rune) {
-	fmt.Fprint(f, dev.lower, " quit ", dev.upper)
+	fmt.Fprint(f, dev.Lower, " quit ", dev.Upper)
 }
 
 func (dev *DevEthtoolFlags) Format(f fmt.State, c rune) {
@@ -72,7 +72,7 @@ func (dev *DevEthtoolFlags) Format(f fmt.State, c rune) {
 
 func (dev DevEthtoolSettings) Format(f fmt.State, c rune) {
 	xid := Xid(dev)
-	attrs := LinkAttrs(xid)
+	attrs := LinkAttrsOf(xid)
 	fmt.Fprint(f, xid)
 	fmt.Fprint(f, " speed ", attrs.EthtoolSpeed(), " (mbps)")
 	fmt.Fprint(f, " autoneg ", attrs.EthtoolAutoNeg())
@@ -82,17 +82,17 @@ func (dev DevEthtoolSettings) Format(f fmt.State, c rune) {
 
 func (dev DevLinkModesSupported) Format(f fmt.State, c rune) {
 	xid := Xid(dev)
-	fmt.Fprint(f, xid, "<", LinkAttrs(xid).LinkModesSupported(), ">")
+	fmt.Fprint(f, xid, "<", LinkAttrsOf(xid).LinkModesSupported(), ">")
 }
 
 func (dev DevLinkModesAdvertising) Format(f fmt.State, c rune) {
 	xid := Xid(dev)
-	fmt.Fprint(f, xid, "<", LinkAttrs(xid).LinkModesAdvertising(), ">")
+	fmt.Fprint(f, xid, "<", LinkAttrsOf(xid).LinkModesAdvertising(), ">")
 }
 
 func (dev DevLinkModesLPAdvertising) Format(f fmt.State, c rune) {
 	xid := Xid(dev)
-	fmt.Fprint(f, xid, "<", LinkAttrs(xid).LinkModesLPAdvertising(), ">")
+	fmt.Fprint(f, xid, "<", LinkAttrsOf(xid).LinkModesLPAdvertising(), ">")
 }
 
 func (bits EthtoolFlagBits) Format(f fmt.State, c rune) {

@@ -30,7 +30,7 @@ var poolIPNet = sync.Pool{
 }
 
 func (xid Xid) RxIP4Add(addr, mask uint32) *DevAddIPNet {
-	attrs := LinkAttrs(xid)
+	attrs := LinkAttrsOf(xid)
 	ip := net.IP(make([]byte, net.IPv4len, net.IPv4len))
 	*(*uint32)(unsafe.Pointer(&ip[0])) = addr
 	l := attrs.IPNets()
@@ -49,7 +49,7 @@ func (xid Xid) RxIP4Add(addr, mask uint32) *DevAddIPNet {
 }
 
 func (xid Xid) RxIP4Del(addr, mask uint32) *DevDelIPNet {
-	attrs := LinkAttrs(xid)
+	attrs := LinkAttrsOf(xid)
 	ip := net.IP(make([]byte, net.IPv4len, net.IPv4len))
 	*(*uint32)(unsafe.Pointer(&ip[0])) = addr
 	l := attrs.IPNets()
@@ -69,7 +69,7 @@ func (xid Xid) RxIP4Del(addr, mask uint32) *DevDelIPNet {
 }
 
 func (xid Xid) RxIP6Add(addr []byte, len int) *DevAddIPNet {
-	attrs := LinkAttrs(xid)
+	attrs := LinkAttrsOf(xid)
 	ip := net.IP(addr)
 	l := attrs.IPNets()
 	for _, entry := range l {
@@ -85,7 +85,7 @@ func (xid Xid) RxIP6Add(addr []byte, len int) *DevAddIPNet {
 }
 
 func (xid Xid) RxIP6Del(addr []byte) *DevDelIPNet {
-	attrs := LinkAttrs(xid)
+	attrs := LinkAttrsOf(xid)
 	ip := net.IP(addr)
 	l := attrs.IPNets()
 	for i, entry := range l {

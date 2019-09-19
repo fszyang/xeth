@@ -4,20 +4,20 @@
 
 package xeth
 
-type DevJoin struct{ lower, upper Xid }
-type DevQuit struct{ lower, upper Xid }
+type DevJoin struct{ Lower, Upper Xid }
+type DevQuit struct{ Lower, Upper Xid }
 
 func (lower Xid) join(upper Xid) *DevJoin {
-	lowerAttrs := LinkAttrs(lower)
-	upperAttrs := LinkAttrs(upper)
+	lowerAttrs := LinkAttrsOf(lower)
+	upperAttrs := LinkAttrsOf(upper)
 	lowerAttrs.Uppers(upper.List(lowerAttrs.Uppers()))
 	upperAttrs.Lowers(lower.List(upperAttrs.Lowers()))
 	return &DevJoin{lower, upper}
 }
 
 func (lower Xid) quit(upper Xid) *DevQuit {
-	lowerAttrs := LinkAttrs(lower)
-	upperAttrs := LinkAttrs(upper)
+	lowerAttrs := LinkAttrsOf(lower)
+	upperAttrs := LinkAttrsOf(upper)
 	lowerAttrs.Uppers(upper.Delist(lowerAttrs.Uppers()))
 	upperAttrs.Lowers(lower.Delist(upperAttrs.Lowers()))
 	return &DevQuit{lower, upper}
