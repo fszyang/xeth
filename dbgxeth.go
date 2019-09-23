@@ -9,8 +9,9 @@ package xeth
 import "fmt"
 
 func (xid Xid) Format(f fmt.State, c rune) {
-	if Valid(xid) {
-		fmt.Fprint(f, LinkAttrsOf(xid).IfInfoName())
+	l := LinkOf(xid)
+	if l != nil {
+		fmt.Fprint(f, l.IfInfoName())
 		return
 	}
 	if xid > VlanNVid {
@@ -72,27 +73,27 @@ func (dev *DevEthtoolFlags) Format(f fmt.State, c rune) {
 
 func (dev DevEthtoolSettings) Format(f fmt.State, c rune) {
 	xid := Xid(dev)
-	attrs := LinkAttrsOf(xid)
+	l := LinkOf(xid)
 	fmt.Fprint(f, xid)
-	fmt.Fprint(f, " speed ", attrs.EthtoolSpeed(), " (mbps)")
-	fmt.Fprint(f, " autoneg ", attrs.EthtoolAutoNeg())
-	fmt.Fprint(f, " duplex ", attrs.EthtoolDuplex())
-	fmt.Fprint(f, " port ", attrs.EthtoolDevPort())
+	fmt.Fprint(f, " speed ", l.EthtoolSpeed(), " (mbps)")
+	fmt.Fprint(f, " autoneg ", l.EthtoolAutoNeg())
+	fmt.Fprint(f, " duplex ", l.EthtoolDuplex())
+	fmt.Fprint(f, " port ", l.EthtoolDevPort())
 }
 
 func (dev DevLinkModesSupported) Format(f fmt.State, c rune) {
 	xid := Xid(dev)
-	fmt.Fprint(f, xid, "<", LinkAttrsOf(xid).LinkModesSupported(), ">")
+	fmt.Fprint(f, xid, "<", LinkOf(xid).LinkModesSupported(), ">")
 }
 
 func (dev DevLinkModesAdvertising) Format(f fmt.State, c rune) {
 	xid := Xid(dev)
-	fmt.Fprint(f, xid, "<", LinkAttrsOf(xid).LinkModesAdvertising(), ">")
+	fmt.Fprint(f, xid, "<", LinkOf(xid).LinkModesAdvertising(), ">")
 }
 
 func (dev DevLinkModesLPAdvertising) Format(f fmt.State, c rune) {
 	xid := Xid(dev)
-	fmt.Fprint(f, xid, "<", LinkAttrsOf(xid).LinkModesLPAdvertising(), ">")
+	fmt.Fprint(f, xid, "<", LinkOf(xid).LinkModesLPAdvertising(), ">")
 }
 
 func (bits EthtoolFlagBits) Format(f fmt.State, c rune) {

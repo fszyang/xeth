@@ -8,18 +8,18 @@ type DevJoin struct{ Lower, Upper Xid }
 type DevQuit struct{ Lower, Upper Xid }
 
 func (lower Xid) join(upper Xid) *DevJoin {
-	lowerAttrs := LinkAttrsOf(lower)
-	upperAttrs := LinkAttrsOf(upper)
-	lowerAttrs.Uppers(upper.List(lowerAttrs.Uppers()))
-	upperAttrs.Lowers(lower.List(upperAttrs.Lowers()))
+	lowerl := LinkOf(lower)
+	upperl := LinkOf(upper)
+	lowerl.Uppers(upper.List(lowerl.Uppers()))
+	upperl.Lowers(lower.List(upperl.Lowers()))
 	return &DevJoin{lower, upper}
 }
 
 func (lower Xid) quit(upper Xid) *DevQuit {
-	lowerAttrs := LinkAttrsOf(lower)
-	upperAttrs := LinkAttrsOf(upper)
-	lowerAttrs.Uppers(upper.Delist(lowerAttrs.Uppers()))
-	upperAttrs.Lowers(lower.Delist(upperAttrs.Lowers()))
+	lowerl := LinkOf(lower)
+	upperl := LinkOf(upper)
+	lowerl.Uppers(upper.Delist(lowerl.Uppers()))
+	upperl.Lowers(lower.Delist(upperl.Lowers()))
 	return &DevQuit{lower, upper}
 }
 

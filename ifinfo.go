@@ -24,8 +24,8 @@ type DevReg struct {
 }
 
 func (xid Xid) RxIfInfo(msg *internal.MsgIfInfo) (note interface{}) {
-	attrs := MayMakeLinkAttrs(xid)
-	if len(attrs.IfInfoName()) > 0 {
+	l := MayMakeLink(xid)
+	if len(l.IfInfoName()) > 0 {
 		note = DevDump(xid)
 	} else {
 		note = DevNew(xid)
@@ -38,41 +38,41 @@ func (xid Xid) RxIfInfo(msg *internal.MsgIfInfo) (note interface{}) {
 				name[i] = byte(c)
 			}
 		}
-		attrs.IfInfoName(string(name))
-		attrs.IfInfoDevKind(DevKind(msg.Kind))
+		l.IfInfoName(string(name))
+		l.IfInfoDevKind(DevKind(msg.Kind))
 		ha := make(net.HardwareAddr, internal.SizeofEthAddr)
 		copy(ha, msg.Addr[:])
-		attrs.IfInfoHardwareAddr(ha)
+		l.IfInfoHardwareAddr(ha)
 	}
-	attrs.IfInfoIfIndex(msg.Ifindex)
-	attrs.IfInfoNetNs(NetNs(msg.Net))
-	attrs.IfInfoFlags(net.Flags(msg.Flags))
+	l.IfInfoIfIndex(msg.Ifindex)
+	l.IfInfoNetNs(NetNs(msg.Net))
+	l.IfInfoFlags(net.Flags(msg.Flags))
 	return note
 }
 
 func (xid Xid) RxUp() DevUp {
-	attrs := LinkAttrsOf(xid)
-	flags := attrs.IfInfoFlags()
+	l := LinkOf(xid)
+	flags := l.IfInfoFlags()
 	flags |= net.FlagUp
-	attrs.IfInfoFlags(flags)
+	l.IfInfoFlags(flags)
 	return DevUp(xid)
 }
 
 func (xid Xid) RxDown() DevDown {
-	attrs := LinkAttrsOf(xid)
-	flags := attrs.IfInfoFlags()
+	l := LinkOf(xid)
+	flags := l.IfInfoFlags()
 	flags &^= net.FlagUp
-	attrs.IfInfoFlags(flags)
+	l.IfInfoFlags(flags)
 	return DevDown(xid)
 }
 
 func (xid Xid) RxReg(netns NetNs) *DevReg {
-	xidattrs := LinkAttrsOf(xid)
-	ifindex := xidattrs.IfInfoIfIndex()
+	l := LinkOf(xid)
+	ifindex := l.IfInfoIfIndex()
 	if netns != DefaultNetNs {
 		DefaultNetNs.Xid(ifindex, 0)
 		netns.Xid(ifindex, xid)
-		xidattrs.IfInfoNetNs(netns)
+		l.IfInfoNetNs(netns)
 	} else {
 		DefaultNetNs.Xid(ifindex, xid)
 	}
@@ -80,11 +80,11 @@ func (xid Xid) RxReg(netns NetNs) *DevReg {
 }
 
 func (xid Xid) RxUnreg() DevUnreg {
-	xidattrs := LinkAttrsOf(xid)
-	ifindex := xidattrs.IfInfoIfIndex()
-	oldns := xidattrs.IfInfoNetNs()
+	l := LinkOf(xid)
+	ifindex := l.IfInfoIfIndex()
+	oldns := l.IfInfoNetNs()
 	oldns.Xid(ifindex, 0)
 	DefaultNetNs.Xid(ifindex, xid)
-	xidattrs.IfInfoNetNs(DefaultNetNs)
+	l.IfInfoNetNs(DefaultNetNs)
 	return DevUnreg(xid)
 }

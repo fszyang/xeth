@@ -30,11 +30,11 @@ var poolIPNet = sync.Pool{
 }
 
 func (xid Xid) RxIP4Add(addr, mask uint32) *DevAddIPNet {
-	attrs := LinkAttrsOf(xid)
+	l := LinkOf(xid)
 	ip := net.IP(make([]byte, net.IPv4len, net.IPv4len))
 	*(*uint32)(unsafe.Pointer(&ip[0])) = addr
-	l := attrs.IPNets()
-	for _, entry := range l {
+	nets := l.IPNets()
+	for _, entry := range nets {
 		if ip.Equal(entry.IP) {
 			return &DevAddIPNet{xid, entry}
 		}
@@ -44,21 +44,21 @@ func (xid Xid) RxIP4Add(addr, mask uint32) *DevAddIPNet {
 	*(*uint32)(unsafe.Pointer(&clone.Mask[0])) = mask
 	clone.IP = clone.IP[:net.IPv4len]
 	clone.Mask = clone.Mask[:net.IPv4len]
-	attrs.IPNets(append(l, clone))
+	l.IPNets(append(nets, clone))
 	return &DevAddIPNet{xid, clone}
 }
 
 func (xid Xid) RxIP4Del(addr, mask uint32) *DevDelIPNet {
-	attrs := LinkAttrsOf(xid)
+	l := LinkOf(xid)
 	ip := net.IP(make([]byte, net.IPv4len, net.IPv4len))
 	*(*uint32)(unsafe.Pointer(&ip[0])) = addr
-	l := attrs.IPNets()
-	for i, entry := range l {
+	nets := l.IPNets()
+	for i, entry := range nets {
 		if ip.Equal(entry.IP) {
 			prefix := entry.String()
-			n := len(l) - 1
-			copy(l[i:], l[i+1:])
-			attrs.IPNets(l[:n])
+			n := len(nets) - 1
+			copy(nets[i:], nets[i+1:])
+			l.IPNets(nets[:n])
 			entry.IP = entry.IP[:cap(entry.IP)]
 			entry.Mask = entry.Mask[:cap(entry.Mask)]
 			poolIPNet.Put(entry)
@@ -69,10 +69,10 @@ func (xid Xid) RxIP4Del(addr, mask uint32) *DevDelIPNet {
 }
 
 func (xid Xid) RxIP6Add(addr []byte, len int) *DevAddIPNet {
-	attrs := LinkAttrsOf(xid)
+	l := LinkOf(xid)
 	ip := net.IP(addr)
-	l := attrs.IPNets()
-	for _, entry := range l {
+	nets := l.IPNets()
+	for _, entry := range nets {
 		if ip.Equal(entry.IP) {
 			return &DevAddIPNet{xid, entry}
 		}
@@ -80,20 +80,20 @@ func (xid Xid) RxIP6Add(addr []byte, len int) *DevAddIPNet {
 	clone := poolIPNet.Get().(*net.IPNet)
 	copy(clone.IP, ip)
 	copy(clone.Mask, net.CIDRMask(len, net.IPv6len*8))
-	attrs.IPNets(append(l, clone))
+	l.IPNets(append(nets, clone))
 	return &DevAddIPNet{xid, clone}
 }
 
 func (xid Xid) RxIP6Del(addr []byte) *DevDelIPNet {
-	attrs := LinkAttrsOf(xid)
+	l := LinkOf(xid)
 	ip := net.IP(addr)
-	l := attrs.IPNets()
-	for i, entry := range l {
+	nets := l.IPNets()
+	for i, entry := range nets {
 		if ip.Equal(entry.IP) {
 			prefix := entry.String()
-			n := len(l) - 1
-			copy(l[i:], l[i+1:])
-			attrs.IPNets(l[:n])
+			n := len(nets) - 1
+			copy(nets[i:], nets[i+1:])
+			l.IPNets(nets[:n])
 			entry.IP = entry.IP[:cap(entry.IP)]
 			entry.Mask = entry.Mask[:cap(entry.Mask)]
 			poolIPNet.Put(entry)
