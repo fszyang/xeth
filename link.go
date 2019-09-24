@@ -5,6 +5,7 @@
 package xeth
 
 import (
+	"fmt"
 	"net"
 	"sync"
 )
@@ -86,8 +87,16 @@ func LinkOf(xid Xid) (l *Link) {
 	return
 }
 
+func expectLinkOf(xid Xid, requester string) (l *Link) {
+	if l = LinkOf(xid); l == nil {
+		fmt.Println(requester, "of", xid, "w/o or before ifinfo")
+		Unknown.Inc()
+	}
+	return
+}
+
 // make the xid Link if it's not already available
-func MayMakeLink(xid Xid) (l *Link) {
+func mayMakeLinkOf(xid Xid) (l *Link) {
 	if l = LinkOf(xid); l == nil {
 		l = &Link{
 			xid: xid,

@@ -49,7 +49,6 @@ import (
 	"net"
 	"os"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -79,13 +78,12 @@ type Break struct{}
 
 type Buffer interface{ buffer }
 
-type Counter uint64
-
 var (
 	Cloned  Counter // cloned received messages
 	Parsed  Counter // messages parsed by user
 	Dropped Counter // messages that overflowed transmit channel
 	Sent    Counter // messages and exception frames sent to driver
+	Unknown Counter // LinkOf xid w/o IfInfo
 )
 
 type Task struct {
@@ -169,7 +167,7 @@ func Class(buf Buffer) int {
 
 // parse driver message and cache ifinfo in xid maps.
 func Parse(buf Buffer) interface{} {
-	defer Parsed.inc()
+	defer Parsed.Inc()
 	defer buf.pool()
 	switch kind(buf) {
 	case internal.MsgKindBreak:
@@ -394,7 +392,7 @@ func (task *Task) goRx(rxch chan<- Buffer) {
 		} else {
 			rxto = minrxto
 			rxch <- cloneBuffer(rxbuf[:n])
-			Cloned.inc()
+			Cloned.Inc()
 		}
 	}
 }
@@ -429,7 +427,7 @@ func (task *Task) queue(buf buffer) {
 	case task.loch <- buf:
 	default:
 		buf.pool()
-		Dropped.inc()
+		Dropped.Inc()
 	}
 }
 
@@ -449,7 +447,7 @@ func (task *Task) tx(buf buffer, timeout time.Duration) error {
 	}
 	_, _, err = task.sock.WriteMsgUnix(buf.bytes(), oob, nil)
 	if err == nil {
-		Sent.inc()
+		Sent.Inc()
 		if kind(buf) == internal.MsgKindCarrier {
 			msg := (*internal.MsgCarrier)(buf.pointer())
 			xid := Xid(msg.Xid)
@@ -479,16 +477,4 @@ func isTimeout(err error) bool {
 		}
 	}
 	return false
-}
-
-func (count *Counter) Count() uint64 {
-	return atomic.LoadUint64((*uint64)(count))
-}
-
-func (count *Counter) Reset() {
-	atomic.StoreUint64((*uint64)(count), 0)
-}
-
-func (count *Counter) inc() {
-	atomic.AddUint64((*uint64)(count), 1)
 }

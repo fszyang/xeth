@@ -5,6 +5,7 @@
 package xeth
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/platinasystems/xeth/internal"
@@ -24,7 +25,7 @@ type DevReg struct {
 }
 
 func (xid Xid) RxIfInfo(msg *internal.MsgIfInfo) (note interface{}) {
-	l := MayMakeLink(xid)
+	l := mayMakeLinkOf(xid)
 	if len(l.IfInfoName()) > 0 {
 		note = DevDump(xid)
 	} else {
@@ -47,27 +48,39 @@ func (xid Xid) RxIfInfo(msg *internal.MsgIfInfo) (note interface{}) {
 	l.IfInfoIfIndex(msg.Ifindex)
 	l.IfInfoNetNs(NetNs(msg.Net))
 	l.IfInfoFlags(net.Flags(msg.Flags))
+	fmt.Println("ifinfo", xid)
 	return note
 }
 
-func (xid Xid) RxUp() DevUp {
-	l := LinkOf(xid)
+func (xid Xid) RxUp() (up DevUp) {
+	l := expectLinkOf(xid, "admin-up")
+	if l == nil {
+		return
+	}
 	flags := l.IfInfoFlags()
 	flags |= net.FlagUp
 	l.IfInfoFlags(flags)
-	return DevUp(xid)
+	up = DevUp(xid)
+	return
 }
 
-func (xid Xid) RxDown() DevDown {
-	l := LinkOf(xid)
+func (xid Xid) RxDown() (down DevDown) {
+	l := expectLinkOf(xid, "admin-down")
+	if l == nil {
+		return
+	}
 	flags := l.IfInfoFlags()
 	flags &^= net.FlagUp
 	l.IfInfoFlags(flags)
-	return DevDown(xid)
+	down = DevDown(xid)
+	return
 }
 
-func (xid Xid) RxReg(netns NetNs) *DevReg {
-	l := LinkOf(xid)
+func (xid Xid) RxReg(netns NetNs) (reg *DevReg) {
+	l := expectLinkOf(xid, "netns-reg")
+	if l == nil {
+		return
+	}
 	ifindex := l.IfInfoIfIndex()
 	if netns != DefaultNetNs {
 		DefaultNetNs.Xid(ifindex, 0)
@@ -76,15 +89,20 @@ func (xid Xid) RxReg(netns NetNs) *DevReg {
 	} else {
 		DefaultNetNs.Xid(ifindex, xid)
 	}
-	return &DevReg{xid, netns}
+	reg = &DevReg{xid, netns}
+	return
 }
 
-func (xid Xid) RxUnreg() DevUnreg {
-	l := LinkOf(xid)
+func (xid Xid) RxUnreg() (unreg DevUnreg) {
+	l := expectLinkOf(xid, "netns-reg")
+	if l == nil {
+		return
+	}
 	ifindex := l.IfInfoIfIndex()
 	oldns := l.IfInfoNetNs()
 	oldns.Xid(ifindex, 0)
 	DefaultNetNs.Xid(ifindex, xid)
 	l.IfInfoNetNs(DefaultNetNs)
-	return DevUnreg(xid)
+	unreg = DevUnreg(xid)
+	return
 }
