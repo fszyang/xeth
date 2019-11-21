@@ -183,24 +183,19 @@ func Parse(buf Buffer) interface{} {
 		}
 	case internal.MsgKindEthtoolFlags:
 		msg := (*internal.MsgEthtoolFlags)(buf.pointer())
-		xid := Xid(msg.Xid)
-		return xid.RxEthtoolFlags(msg.Flags)
+		return Xid(msg.Xid).RxEthtoolFlags(msg.Flags)
 	case internal.MsgKindEthtoolLinkModesSupported:
 		msg := (*internal.MsgEthtoolLinkModes)(buf.pointer())
-		xid := Xid(msg.Xid)
-		return xid.RxSupported(msg.Modes())
+		return Xid(msg.Xid).RxSupported(msg.Modes)
 	case internal.MsgKindEthtoolLinkModesAdvertising:
 		msg := (*internal.MsgEthtoolLinkModes)(buf.pointer())
-		xid := Xid(msg.Xid)
-		return xid.RxAdvertising(msg.Modes())
+		return Xid(msg.Xid).RxAdvertising(msg.Modes)
 	case internal.MsgKindEthtoolLinkModesLPAdvertising:
 		msg := (*internal.MsgEthtoolLinkModes)(buf.pointer())
-		xid := Xid(msg.Xid)
-		return xid.RxLPAdvertising(msg.Modes())
+		return Xid(msg.Xid).RxLPAdvertising(msg.Modes)
 	case internal.MsgKindEthtoolSettings:
 		msg := (*internal.MsgEthtoolSettings)(buf.pointer())
-		xid := Xid(msg.Xid)
-		return xid.RxEthtoolSettings(msg)
+		return Xid(msg.Xid).RxEthtoolSettings(msg)
 	case internal.MsgKindFibEntry:
 		msg := (*internal.MsgFibEntry)(buf.pointer())
 		return fib4(msg)

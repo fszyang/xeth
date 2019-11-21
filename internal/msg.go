@@ -91,14 +91,3 @@ func (msg *MsgFib6Entry) Siblings() []NextHop6 {
 		Cap:  nsiblings,
 	}))
 }
-
-func (msg *MsgEthtoolLinkModes) Modes() []uint8 {
-	ptr := unsafe.Pointer(msg)
-	nbytes := int(msg.Nbytes)
-	modes := *(*[]uint8)(unsafe.Pointer(&reflect.SliceHeader{
-		Data: uintptr(ptr) + uintptr(SizeofMsgEthtoolLinkModes),
-		Len:  nbytes,
-		Cap:  nbytes,
-	}))
-	return modes
-}

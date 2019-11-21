@@ -294,31 +294,23 @@ func (l *Link) IsVlan() bool {
 	return l.IfInfoDevKind() == DevKindVlan
 }
 
-func (l *Link) LinkModesSupported(set ...EthtoolLinkModeBits) (modes EthtoolLinkModeBits) {
-	if len(set) > 0 {
-		modes = set[0]
-		l.Store(LinkAttrLinkModesSupported, modes)
-	} else if v, ok := l.Load(LinkAttrLinkModesSupported); ok {
-		modes = v.(EthtoolLinkModeBits)
-	}
-	return
+func (l *Link) LinkModesSupported(set ...EthtoolLinkModeBits) EthtoolLinkModeBits {
+	return l.linkmodes(LinkAttrLinkModesSupported, set...)
 }
 
-func (l *Link) LinkModesAdvertising(set ...EthtoolLinkModeBits) (modes EthtoolLinkModeBits) {
-	if len(set) > 0 {
-		modes = set[0]
-		l.Store(LinkAttrLinkModesAdvertising, modes)
-	} else if v, ok := l.Load(LinkAttrLinkModesAdvertising); ok {
-		modes = v.(EthtoolLinkModeBits)
-	}
-	return
+func (l *Link) LinkModesAdvertising(set ...EthtoolLinkModeBits) EthtoolLinkModeBits {
+	return l.linkmodes(LinkAttrLinkModesAdvertising, set...)
 }
 
-func (l *Link) LinkModesLPAdvertising(set ...EthtoolLinkModeBits) (modes EthtoolLinkModeBits) {
+func (l *Link) LinkModesLPAdvertising(set ...EthtoolLinkModeBits) EthtoolLinkModeBits {
+	return l.linkmodes(LinkAttrLinkModesLPAdvertising, set...)
+}
+
+func (l *Link) linkmodes(attr LinkAttr, set ...EthtoolLinkModeBits) (modes EthtoolLinkModeBits) {
 	if len(set) > 0 {
 		modes = set[0]
-		l.Store(LinkAttrLinkModesLPAdvertising, modes)
-	} else if v, ok := l.Load(LinkAttrLinkModesLPAdvertising); ok {
+		l.Store(attr, modes)
+	} else if v, ok := l.Load(attr); ok {
 		modes = v.(EthtoolLinkModeBits)
 	}
 	return

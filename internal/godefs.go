@@ -133,8 +133,6 @@ const (
 )
 
 const (
-	IflaUnspec = C.XETH_IFLA_UNSPEC
-	IflaXid    = C.XETH_IFLA_XID
-	IflaVid    = C.XETH_IFLA_VID
-	IflaKind   = C.XETH_IFLA_KIND
+	VlanIflaUnspec = C.XETH_VLAN_IFLA_UNSPEC
+	VlanIflaVid    = C.XETH_VLAN_IFLA_VID
 )

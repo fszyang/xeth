@@ -156,9 +156,9 @@ func (bits EthtoolLinkModeBits) Format(f fmt.State, c rune) {
 		"10000baseER-full",
 		"2500baseT-full",
 		"5000baseT-full",
-		"FEC-none",
-		"FEC=rs",
-		"FEC-baser",
+		"fec-none",
+		"fec-rs",
+		"fec-baser",
 	} {
 		if bits.Test(uint(i)) {
 			fmt.Fprint(f, sep, s)

@@ -45,10 +45,10 @@ type MsgEthtoolSettings struct {
 	Pad			uint8
 }
 type MsgEthtoolLinkModes struct {
-	Header	MsgHeader
-	Xid	uint32
-	Nbytes	uint8
-	Pad	[3]uint8
+	Header		MsgHeader
+	Xid		uint32
+	Reserved	uint32
+	Modes		uint64
 }
 type NextHop struct {
 	Ifindex	int32
@@ -168,7 +168,7 @@ const (
 	SizeofMsgDumpIfInfo		= 0x10
 	SizeofMsgEthtoolFlags		= 0x18
 	SizeofMsgEthtoolSettings	= 0x20
-	SizeofMsgEthtoolLinkModes	= 0x18
+	SizeofMsgEthtoolLinkModes	= 0x20
 	SizeofMsgIfa			= 0x20
 	SizeofMsgIfa6			= 0x30
 	SizeofMsgIfInfo			= 0x40
@@ -242,8 +242,6 @@ const (
 )
 
 const (
-	IflaUnspec	= 0x0
-	IflaXid		= 0x1
-	IflaVid		= 0x2
-	IflaKind	= 0x3
+	VlanIflaUnspec	= 0x0
+	VlanIflaVid	= 0x1
 )

@@ -5,14 +5,12 @@
 package xeth
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/platinasystems/xeth/internal"
 )
 
 type DevKind uint8
-
 type DevNew Xid
 type DevDel Xid
 type DevUp Xid
@@ -48,7 +46,6 @@ func (xid Xid) RxIfInfo(msg *internal.MsgIfInfo) (note interface{}) {
 	l.IfInfoIfIndex(msg.Ifindex)
 	l.IfInfoNetNs(NetNs(msg.Net))
 	l.IfInfoFlags(net.Flags(msg.Flags))
-	fmt.Println("ifinfo", xid)
 	return note
 }
 
