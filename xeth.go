@@ -110,7 +110,7 @@ func Start(wg *sync.WaitGroup, stopch <-chan struct{}) (task *Task, err error) {
 	}
 
 	loch := make(chan buffer, 4)
-	hich := make(chan buffer)
+	hich := make(chan buffer, 4)
 	rxch := make(chan Buffer, 1024)
 
 	task = &Task{
@@ -305,7 +305,7 @@ func (task *Task) setStat(kind uint8, xid Xid, stat uint32, n uint64) {
 	msg.Xid = uint32(xid)
 	msg.Index = stat
 	msg.Count = n
-	task.queue(buf)
+	task.hich <- buf
 }
 
 // Send speed change to driver through hi-priority channel.
