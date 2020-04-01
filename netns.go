@@ -1,16 +1,15 @@
-// Copyright © 2018-2019 Platina Systems, Inc. All rights reserved.
+// Copyright © 2018-2020 Platina Systems, Inc. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
 package xeth
 
 import (
-	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 	"syscall"
 )
@@ -21,11 +20,7 @@ type NetNses []NetNs
 const DefaultNetNs NetNs = 1
 
 type netnsAttrs struct {
-	path      string
-	container struct {
-		id   string
-		name string
-	}
+	path     string // or pid
 	xids     sync.Map
 	neigbors sync.Map
 	localRT  sync.Map
@@ -42,60 +37,10 @@ func NetNsRange(f func(ns NetNs) bool) {
 }
 
 func NewNetNses() (l NetNses) {
-	DockerScan()
 	netnsAttrsMap.Range(func(k, v interface{}) bool {
 		l = append(l, k.(NetNs))
 		return true
 	})
-	return
-}
-
-func DockerScan() {
-	const debug = false
-
-	c := exec.Command("docker", "container", "ls", "--format", "{{.ID}}")
-	b, err := c.Output()
-	if err != nil {
-		if debug {
-			fmt.Println(c.Args, ":", err)
-		}
-		return
-	}
-	ids := bytes.Split(bytes.TrimSpace(b), []byte{'\n'})
-	for _, id := range ids {
-		var inode uint64
-		var name string
-		sid := string(id)
-		c = exec.Command("docker", "inspect", "-f",
-			"{{.Name}} {{.NetworkSettings.SandboxKey}}",
-			sid)
-		b, err = c.Output()
-		if err != nil {
-			if debug {
-				fmt.Println(c.Args, ":", err)
-			}
-			continue
-		} else {
-			f := bytes.Fields(bytes.TrimSpace(b))
-			if len(f) >= 2 {
-				name = string(bytes.TrimPrefix(f[0],
-					[]byte{'/'}))
-				fn := string(f[1])
-				fi, err := os.Stat(fn)
-				if err != nil {
-					if debug {
-						fmt.Println(fn, ":", err)
-					}
-					continue
-				} else {
-					inode = fi.Sys().(*syscall.Stat_t).Ino
-				}
-			}
-		}
-		ns := NetNs(inode)
-		ns.ContainerId(sid)
-		ns.ContainerName(name)
-	}
 	return
 }
 
@@ -108,19 +53,6 @@ func (l NetNses) FilterName(re *regexp.Regexp) NetNses {
 	for i := 0; i < len(l); {
 		ns := l[i]
 		if re.MatchString(ns.String()) {
-			i += 1
-		} else {
-			l = l.Cut(i)
-		}
-	}
-	return l
-}
-
-func (l NetNses) FilterContainer(re *regexp.Regexp) NetNses {
-	for i := 0; i < len(l); {
-		ns := l[i]
-		if re.MatchString(ns.ContainerName()) ||
-			re.MatchString(ns.ContainerId()) {
 			i += 1
 		} else {
 			l = l.Cut(i)
@@ -157,28 +89,6 @@ func (l NetNses) Inodes() []uint64 {
 
 func (ns NetNs) Base() string {
 	return filepath.Base(ns.Path())
-}
-
-func (ns NetNs) ContainerId(set ...string) (id string) {
-	attrs := ns.attrs()
-	if len(set) > 0 {
-		id = set[0]
-		attrs.container.id = id
-	} else {
-		id = attrs.container.id
-	}
-	return
-}
-
-func (ns NetNs) ContainerName(set ...string) (name string) {
-	attrs := ns.attrs()
-	if len(set) > 0 {
-		name = set[0]
-		attrs.container.name = name
-	} else {
-		name = attrs.container.name
-	}
-	return
 }
 
 func (ns NetNs) FibEntry(rt RtTable, ipnet string) (fe *FibEntry) {
@@ -234,7 +144,7 @@ func (ns NetNs) Path() string {
 		attrs.path = "default"
 		return attrs.path
 	}
-	filepath.Walk("/run",
+	filepath.Walk("/run/netns",
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
@@ -249,8 +159,31 @@ func (ns NetNs) Path() string {
 			}
 			return nil
 		})
-	if len(attrs.path) == 0 {
-		attrs.path = fmt.Sprint(ns.Inode())
+	if len(attrs.path) > 0 {
+		return attrs.path
+	}
+	attrs.path = "unknown"
+	globs, err := filepath.Glob("/proc/[0-9]*/ns")
+	if err != nil {
+		return attrs.path
+	}
+	for _, procns := range globs {
+		pid := strings.Split(procns, "/")[2]
+		procnsnet := filepath.Join(procns, "net")
+		ln, err := os.Readlink(procnsnet)
+		if err != nil {
+			continue
+		}
+		if !strings.HasPrefix(ln, "net:[") {
+			continue
+		}
+		is := strings.TrimSuffix(strings.TrimPrefix(ln, "net:["), "]")
+		var inode uint64
+		_, err = fmt.Sscan(is, &inode)
+		if err == nil && inode == uint64(ns) {
+			attrs.path = pid
+			return pid
+		}
 	}
 	return attrs.path
 }

@@ -1,4 +1,4 @@
-// Copyright © 2018-2019 Platina Systems, Inc. All rights reserved.
+// Copyright © 2018-2020 Platina Systems, Inc. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -114,7 +114,6 @@ func LinkRange(f func(xid Xid, l *Link) bool) {
 
 func ListXids() (xids Xids) {
 	// scan docker containers to cache their name space attributes
-	DockerScan()
 	LinkRange(func(xid Xid, l *Link) bool {
 		xids = append(xids, xid)
 		return true

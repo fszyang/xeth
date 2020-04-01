@@ -1,4 +1,4 @@
-// Copyright © 2018-2019 Platina Systems, Inc. All rights reserved.
+// Copyright © 2018-2020 Platina Systems, Inc. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -14,19 +14,6 @@ type Xids []Xid
 func (xids Xids) Cut(i int) Xids {
 	copy(xids[i:], xids[i+1:])
 	return xids[:len(xids)-1]
-}
-
-func (xids Xids) FilterContainer(re *regexp.Regexp) Xids {
-	for i := 0; i < len(xids); {
-		ns := LinkOf(xids[i]).IfInfoNetNs()
-		if re.MatchString(ns.ContainerName()) ||
-			re.MatchString(ns.ContainerId()) {
-			i += 1
-		} else {
-			xids = xids.Cut(i)
-		}
-	}
-	return xids
 }
 
 func (xids Xids) FilterName(re *regexp.Regexp) Xids {
