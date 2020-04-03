@@ -19,11 +19,10 @@ type DevDump Xid
 type DevUnreg Xid
 type DevReg Xid
 
-func (xid Xid) RxIfInfo(msg *internal.MsgIfInfo) (note interface{}) {
+func (xid Xid) RxIfInfo(msg *internal.MsgIfInfo) interface{} {
+	var note interface{} = DevDump(xid)
 	l := mayMakeLinkOf(xid)
-	if len(l.IfInfoName()) > 0 {
-		note = DevDump(xid)
-	} else {
+	if len(l.IfInfoName()) == 0 {
 		note = DevNew(xid)
 		name := make([]byte, internal.SizeofIfName)
 		for i, c := range msg.Ifname[:] {
@@ -46,58 +45,50 @@ func (xid Xid) RxIfInfo(msg *internal.MsgIfInfo) (note interface{}) {
 	return note
 }
 
-func (xid Xid) RxUp() (up DevUp) {
-	l := expectLinkOf(xid, "admin-up")
-	if l == nil {
-		return
+func (xid Xid) RxUp() DevUp {
+	up := DevUp(xid)
+	if l := expectLinkOf(xid, "admin-up"); l != nil {
+		flags := l.IfInfoFlags()
+		flags |= net.FlagUp
+		l.IfInfoFlags(flags)
 	}
-	flags := l.IfInfoFlags()
-	flags |= net.FlagUp
-	l.IfInfoFlags(flags)
-	up = DevUp(xid)
-	return
+	return up
 }
 
-func (xid Xid) RxDown() (down DevDown) {
-	l := expectLinkOf(xid, "admin-down")
-	if l == nil {
-		return
+func (xid Xid) RxDown() DevDown {
+	down := DevDown(xid)
+	if l := expectLinkOf(xid, "admin-down"); l != nil {
+		flags := l.IfInfoFlags()
+		flags &^= net.FlagUp
+		l.IfInfoFlags(flags)
 	}
-	flags := l.IfInfoFlags()
-	flags &^= net.FlagUp
-	l.IfInfoFlags(flags)
-	down = DevDown(xid)
-	return
+	return down
 }
 
-func (xid Xid) RxReg(netns NetNs) (reg DevReg) {
-	reg = DevReg(xid)
-	l := LinkOf(xid)
-	if l == nil {
-		return
+func (xid Xid) RxReg(netns NetNs) DevReg {
+	reg := DevReg(xid)
+	if l := LinkOf(xid); l != nil {
+		ifindex := l.IfInfoIfIndex()
+		if netns != DefaultNetNs {
+			DefaultNetNs.Xid(ifindex, 0)
+			netns.Xid(ifindex, xid)
+			l.IfInfoNetNs(netns)
+		} else {
+			DefaultNetNs.Xid(ifindex, xid)
+			l.IfInfoNetNs(DefaultNetNs)
+		}
 	}
-	ifindex := l.IfInfoIfIndex()
-	if netns != DefaultNetNs {
-		DefaultNetNs.Xid(ifindex, 0)
-		netns.Xid(ifindex, xid)
-		l.IfInfoNetNs(netns)
-	} else {
-		DefaultNetNs.Xid(ifindex, xid)
-		l.IfInfoNetNs(DefaultNetNs)
-	}
-	return
+	return reg
 }
 
 func (xid Xid) RxUnreg() (unreg DevUnreg) {
-	l := expectLinkOf(xid, "netns-reg")
-	if l == nil {
-		return
-	}
-	ifindex := l.IfInfoIfIndex()
-	oldns := l.IfInfoNetNs()
-	oldns.Xid(ifindex, 0)
-	DefaultNetNs.Xid(ifindex, xid)
-	l.IfInfoNetNs(DefaultNetNs)
 	unreg = DevUnreg(xid)
-	return
+	if l := expectLinkOf(xid, "netns-reg"); l != nil {
+		ifindex := l.IfInfoIfIndex()
+		oldns := l.IfInfoNetNs()
+		oldns.Xid(ifindex, 0)
+		DefaultNetNs.Xid(ifindex, xid)
+		l.IfInfoNetNs(DefaultNetNs)
+	}
+	return unreg
 }
