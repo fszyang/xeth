@@ -85,6 +85,7 @@ func (xid Xid) RxReg(netns NetNs) (reg *DevReg) {
 		l.IfInfoNetNs(netns)
 	} else {
 		DefaultNetNs.Xid(ifindex, xid)
+		l.IfInfoNetNs(DefaultNetNs)
 	}
 	reg = &DevReg{xid, netns}
 	return
