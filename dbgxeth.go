@@ -43,8 +43,12 @@ func (dev DevDump) Format(f fmt.State, c rune) {
 	fmt.Fprint(f, Xid(dev), " dump")
 }
 
-func (reg *DevReg) Format(f fmt.State, c rune) {
-	fmt.Fprint(f, reg.Xid, " reg ", reg.NetNs)
+func (reg DevReg) Format(f fmt.State, c rune) {
+	xid := Xid(reg)
+	fmt.Fprint(f, xid, " reg")
+	if l := LinkOf(xid); l != nil {
+		fmt.Fprint(f, " ", l.IfInfoNetNs())
+	}
 }
 
 func (dev DevUnreg) Format(f fmt.State, c rune) {

@@ -17,10 +17,7 @@ type DevUp Xid
 type DevDown Xid
 type DevDump Xid
 type DevUnreg Xid
-type DevReg struct {
-	Xid
-	NetNs
-}
+type DevReg Xid
 
 func (xid Xid) RxIfInfo(msg *internal.MsgIfInfo) (note interface{}) {
 	l := mayMakeLinkOf(xid)
@@ -73,8 +70,9 @@ func (xid Xid) RxDown() (down DevDown) {
 	return
 }
 
-func (xid Xid) RxReg(netns NetNs) (reg *DevReg) {
-	l := expectLinkOf(xid, "netns-reg")
+func (xid Xid) RxReg(netns NetNs) (reg DevReg) {
+	reg = DevReg(xid)
+	l := LinkOf(xid)
 	if l == nil {
 		return
 	}
@@ -87,7 +85,6 @@ func (xid Xid) RxReg(netns NetNs) (reg *DevReg) {
 		DefaultNetNs.Xid(ifindex, xid)
 		l.IfInfoNetNs(DefaultNetNs)
 	}
-	reg = &DevReg{xid, netns}
 	return
 }
 
